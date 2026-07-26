@@ -1,0 +1,290 @@
+[
+  {
+    "intent": "help",
+    "synonyms": ["ajuda", "comandos", "o que voce faz", "o que você faz", "instrucoes", "instruções"]
+  },
+  {
+    "intent": "memory.name.set",
+    "synonyms": ["me chame de", "meu nome e", "meu nome é", "pode me chamar de"]
+  },
+  {
+    "intent": "memory.assistant.name.set",
+    "synonyms": ["seu nome e", "seu nome é", "voce se chama", "você se chama", "teu nome é"]
+  },
+  {
+    "intent": "memory.learn",
+    "synonyms": ["aprenda que", "lembre que", "guarde que", "memorize que"]
+  },
+  {
+    "intent": "memory.forget",
+    "synonyms": ["esqueca que", "esqueça que", "apague da memoria", "apague da memória", "remova da memoria"]
+  },
+  {
+    "intent": "memory.capabilities.set",
+    "synonyms": ["suas capacidades sao", "suas capacidades são", "voce consegue", "você consegue", "suas funcoes sao"]
+  },
+  {
+    "intent": "memory.custom.create",
+    "synonyms": ["quando eu disser", "quando eu falar", "se eu disser", "se eu falar"]
+  },
+  {
+    "intent": "memory.whoami",
+    "synonyms": ["quem sou eu", "qual e meu nome", "qual é meu nome", "voce sabe meu nome", "você sabe o meu nome", "lembra do meu nome", "como eu me chamo"]
+  },
+  {
+    "intent": "memory.assistant.identity",
+    "synonyms": ["qual e seu nome", "qual é seu nome", "quem e voce", "quem é você"]
+  },
+  {
+    "intent": "memory.capabilities",
+    "synonyms": ["quais sao suas capacidades", "quais são suas capacidades", "o que voce consegue fazer", "o que você consegue fazer"]
+  },
+  {
+    "intent": "memory.summary",
+    "synonyms": ["minha memoria", "minha memória", "preferencias", "preferências", "o que voce sabe sobre mim", "o que você sabe sobre mim"]
+  },
+  {
+    "intent": "speech.mode.formal",
+    "synonyms": ["modo formal", "fala formal", "fale formal", "modo serio", "modo sério", "fala comigo formal"]
+  },
+  {
+    "intent": "speech.mode.casual",
+    "synonyms": ["modo casual", "modo descontraido", "modo descontraído", "fala casual", "fale casual", "modo informal", "fala comigo casual"]
+  },
+  {
+    "intent": "speech.mode.sarcastic",
+    "synonyms": ["modo sarcastico", "modo sarcástico", "fala sarcastico", "fala sarcástico", "fale sarcastico", "fale sarcástico", "modo debochado"]
+  },
+  {
+    "intent": "weather.current",
+    "synonyms": ["como esta o tempo", "como está o tempo", "qual o clima", "previsao do tempo", "previsão do tempo", "vai chover", "esta calor", "está calor", "esta frio", "está frio"]
+  },
+  {
+    "intent": "location.city.set",
+    "synonyms": ["minha cidade e", "minha cidade é", "mudar cidade para", "configurar cidade", "definir cidade"]
+  },
+  {
+    "intent": "fun.joke",
+    "synonyms": ["conte uma piada", "me conta uma piada", "piada de programador", "conte algo engracado"]
+  },
+  {
+    "intent": "fun.fact",
+    "synonyms": ["fato aleatorio", "me diga uma curiosidade", "curiosidade aleatoria", "conte uma curiosidade"]
+  },
+  {
+    "intent": "fun.coin",
+    "synonyms": ["cara ou coroa", "jogue uma moeda", "jogar moeda"]
+  },
+  {
+    "intent": "fun.dice",
+    "synonyms": ["role um dado", "jogue um dado", "rolar dado", "tirar um dado", "dado de 20"]
+  },
+  {
+    "intent": "fun.choose",
+    "synonyms": ["escolha entre", "decida entre", "o que eu escolho"]
+  },
+  {
+    "intent": "fun.compliment",
+    "synonyms": ["me elogie", "diga algo legal para mim", "me diga algo bom", "me elogia"]
+  },
+  {
+    "intent": "fun.insult",
+    "synonyms": ["me xingue", "me ofenda", "me zoa"]
+  },
+  {
+    "intent": "fun.selfdestruct",
+    "synonyms": ["autodestruicao", "autodestruição", "iniciar autodestruicao", "modo autodestruicao"]
+  },
+  {
+    "intent": "fun.meaning",
+    "synonyms": ["qual o sentido da vida", "sentido da vida", "qual e o sentido da vida"]
+  },
+  {
+    "intent": "fun.feelings",
+    "synonyms": ["voce tem sentimentos", "voce sente algo", "voce tem emocoes"]
+  },
+  {
+    "intent": "fun.age",
+    "synonyms": ["quantos anos voce tem", "qual sua idade", "que idade voce tem"]
+  },
+  {
+    "intent": "fun.hungry",
+    "synonyms": ["voce esta com fome", "voce come", "voce tem fome"]
+  },
+  {
+    "intent": "fun.fortune",
+    "synonyms": ["sorte de hoje", "minha sorte hoje", "horoscopo", "meu horoscopo"]
+  },
+  {
+    "intent": "fun.dance",
+    "synonyms": ["danca maia", "faca uma danca", "dance para mim"]
+  },
+  {
+    "intent": "fun.fanfare",
+    "synonyms": ["toque uma fanfarra", "toque um som de vitoria", "comemore"]
+  },
+  {
+    "intent": "fun.surprise",
+    "synonyms": ["me surpreenda", "faca algo aleatorio", "surpreenda-me"]
+  },
+  {
+    "intent": "focus.pomodoro",
+    "synonyms": ["inicia um pomodoro", "comecar pomodoro", "começar pomodoro", "pomodoro de 25 minutos", "modo pomodoro"]
+  },
+  {
+    "intent": "agenda.today",
+    "synonyms": ["o que eu tenho hoje", "agenda de hoje", "resumo do dia", "compromissos de hoje"]
+  },
+  {
+    "intent": "meeting.join",
+    "synonyms": ["entrar na reuniao", "entrar na reunião", "abrir reunião", "abrir meet", "abrir teams", "abrir zoom"]
+  },
+  {
+    "intent": "system.lock",
+    "synonyms": ["trava o pc", "travar o pc", "bloquear tela", "bloquear a tela", "bloquear o computador", "bloqueia o computador", "bloqueie o computador"]
+  },
+  {
+    "intent": "system.sleep",
+    "synonyms": ["hibernar pc", "colocar pc para dormir", "suspender computador"]
+  },
+  {
+    "intent": "system.restart",
+    "synonyms": ["reiniciar pc", "reinicie o computador", "reiniciar computador"]
+  },
+  {
+    "intent": "network.status",
+    "synonyms": ["como esta minha internet", "como está minha internet", "status da internet", "testar internet"]
+  },
+  {
+    "intent": "window.organize",
+    "synonyms": ["organiza as janelas", "organizar janelas", "arrumar janelas"]
+  },
+  {
+    "intent": "file.search",
+    "synonyms": ["onde esta o arquivo", "onde está o arquivo", "buscar arquivo", "procure o arquivo"]
+  },
+  {
+    "intent": "youtube.play",
+    "synonyms": ["toca no youtube", "toque no youtube", "reproduza no youtube", "coloque no youtube", "bota no youtube", "quero ver no youtube", "quero assistir no youtube", "abrir no youtube"]
+  },
+  {
+    "intent": "youtube.search",
+    "synonyms": ["procure no youtube", "procura no youtube", "pesquise no youtube", "pesquisa no youtube", "busque no youtube", "busca no youtube", "encontre no youtube", "acha no youtube"]
+  },
+  {
+    "intent": "finance.expense.add",
+    "synonyms": ["anota um gasto", "registrar gasto", "gastei"]
+  },
+  {
+    "intent": "finance.summary",
+    "synonyms": ["quanto eu gastei esse mes", "quanto gastei esse mês", "resumo de gastos"]
+  },
+  {
+    "intent": "quote.usd",
+    "synonyms": ["quanto esta o dolar", "quanto está o dólar", "cotacao do dolar", "cotação do dólar"]
+  },
+  {
+    "intent": "security.password",
+    "synonyms": ["gera uma senha forte", "gerar senha forte", "criar senha segura"]
+  },
+  {
+    "intent": "personality.creator",
+    "synonyms": ["quem te criou", "quem criou voce", "quem criou você", "quem fez voce", "quem fez você"]
+  },
+  {
+    "intent": "personality.real",
+    "synonyms": ["voce e o maia de verdade", "você é o maia de verdade", "voce e real", "voce esta vivo"]
+  },
+  {
+    "intent": "personality.protocol",
+    "synonyms": ["modo confirmacao", "modo confirmação", "qual e seu protocolo", "voce aprende sozinho", "você aprende sozinho"]
+  },
+  {
+    "intent": "calculate",
+    "synonyms": ["calcule", "calcula", "calcular", "quanto e", "quanto é", "resultado de", "vezes", "dividido por", "multiplicado por", "raiz de", "por cento", "elevado a", "ao quadrado", "ao cubo", "seno de", "cosseno de", "tangente de"]
+  },
+  {
+    "intent": "spotify.play",
+    "synonyms": ["tocar musica", "tocar música", "reproduzir musica", "reproduzir música", "toque no spotify", "tocar no spotify"]
+  },
+  {
+    "intent": "spotify.login",
+    "synonyms": ["conectar spotify", "login spotify", "autorizar spotify", "entrar no spotify"]
+  },
+  {
+    "intent": "spotify.current",
+    "synonyms": ["que musica esta tocando", "que música está tocando", "qual musica esta tocando", "o que esta tocando", "quanto falta para acabar"]
+  },
+  {
+    "intent": "speech.helper.open",
+    "synonyms": ["abrir voz online", "iniciar voz online", "abrir microfone online", "abrir reconhecimento online"]
+  },
+  {
+    "intent": "spotify.queue",
+    "synonyms": ["coloque na fila", "colocar na fila", "adicionar na fila", "depois dessa musica", "depois dessa música", "quando essa musica terminar", "quando essa música terminar", "quando essa acabar"]
+  },
+  {
+    "intent": "volume.set",
+    "synonyms": ["volume baixo", "volume medio", "volume médio", "volume alto", "volume cem", "volume maximo", "volume máximo", "volume normal"]
+  },
+  {
+    "intent": "brightness.set",
+    "synonyms": ["brilho baixo", "brilho medio", "brilho médio", "brilho alto", "diminuir brilho", "aumentar brilho"]
+  },
+  {
+    "intent": "system.open",
+    "synonyms": ["abrir chrome", "abrir edge", "abrir vs code", "abrir calculadora", "abrir bloco de notas", "abrir spotify", "abrir camera", "abrir câmera", "iniciar camera", "iniciar câmera", "abrir webcam"]
+  },
+  {
+    "intent": "system.close",
+    "synonyms": ["fechar camera", "fechar câmera", "fechar webcam"]
+  },
+  {
+    "intent": "system.shutdown",
+    "synonyms": ["desligar computador", "desligue o pc", "desligar pc", "desligue o computador"]
+  },
+  {
+    "intent": "reminder.create",
+    "synonyms": ["me lembre", "lembre me", "criar lembrete", "lembrar"]
+  },
+  {
+    "intent": "schedule.create",
+    "synonyms": ["agende", "programar", "abra spotify as", "abra spotify às", "desligue o pc em"]
+  },
+  {
+    "intent": "macro.work",
+    "synonyms": ["modo trabalho", "iniciar modo trabalho", "ativar modo trabalho"]
+  },
+  {
+    "intent": "macro.game",
+    "synonyms": ["modo jogo", "iniciar modo jogo", "ativar modo jogo"]
+  },
+  {
+    "intent": "macro.night",
+    "synonyms": ["modo noite", "boa noite maia", "ativar modo noite"]
+  },
+  {
+    "intent": "visual.focus",
+    "synonyms": ["modo foco", "ativar modo foco", "interface foco"]
+  },
+  {
+    "intent": "visual.combat",
+    "synonyms": ["modo combate", "ativar modo combate", "interface combate"]
+  },
+  {
+    "intent": "visual.rest",
+    "synonyms": ["modo repouso", "ativar modo repouso", "interface repouso"]
+  },
+  {
+    "intent": "visual.default",
+    "synonyms": ["modo padrao", "modo padrão", "interface normal", "desativar modo combate", "sair do modo combate"]
+  },
+  {
+    "intent": "clipboard.read",
+    "synonyms": ["ler area de transferencia", "ler área de transferência", "o que esta copiado", "o que está copiado"]
+  },
+  {
+    "intent": "screenshot.capture",
+    "synonyms": ["capturar tela", "tirar print", "print da tela", "salvar captura"]
+  }
+]

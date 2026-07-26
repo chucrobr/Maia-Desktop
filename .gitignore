@@ -1,0 +1,10 @@
+node_modules/
+dist/
+releases/*.exe
+releases/*.blockmap
+logs/
+.wwebjs_cache/
+*.log
+.env
+.env.*
+!.env.example

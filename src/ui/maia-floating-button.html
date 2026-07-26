@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+<title>Maia Floating — AMOLED</title>
+<style>
+  :root{
+    --cyan:#5be6ff;
+    --cyan-soft:#b9f4ff;
+    --amber:#ffb454;
+    --void:#000000;
+    --float-rgb:91,230,255;
+    --float-light:#b9f4ff;
+    --float-core:#2fb6dd;
+    --float-deep:#06222e;
+    --ease-out: cubic-bezier(.16,.84,.44,1);
+    --ease-soft: cubic-bezier(.22,.61,.36,1);
+  }
+  body[data-theme="iron"]{--cyan:#ff6b5f;--cyan-soft:#ffe0d8;--amber:#ffc857;--float-rgb:255,107,95;--float-light:#ffe0d8;--float-core:#ff5a50;--float-deep:#4a0b0b}
+  body[data-theme="neon"]{--cyan:#4dff9a;--cyan-soft:#d1ffe4;--amber:#d96cff;--float-rgb:77,255,154;--float-light:#d1ffe4;--float-core:#28d978;--float-deep:#063820}
+  body[data-theme="arctic"]{--cyan:#8eeeff;--cyan-soft:#effcff;--amber:#b8d4ff;--float-rgb:142,238,255;--float-light:#effcff;--float-core:#77d9ff;--float-deep:#12344b}
+  body[data-theme="violet"]{--cyan:#c49aff;--cyan-soft:#f3eaff;--amber:#ff8bd8;--float-rgb:196,154,255;--float-light:#f3eaff;--float-core:#a66cff;--float-deep:#281344}
+  body[data-theme="solar"]{--cyan:#ffd166;--cyan-soft:#fff1c2;--amber:#ff7a45;--float-rgb:255,209,102;--float-light:#fff1c2;--float-core:#ff9e45;--float-deep:#3a2308}
+  body[data-theme="ocean"]{--cyan:#58d9ff;--cyan-soft:#d9f8ff;--amber:#43f0d0;--float-rgb:88,217,255;--float-light:#d9f8ff;--float-core:#21b9de;--float-deep:#07324b}
+  body[data-theme="minimal"]{--cyan:#d7e0e5;--cyan-soft:#fff;--amber:#aebbc2;--float-rgb:215,224,229;--float-light:#fff;--float-core:#7d8b92;--float-deep:#161b1e}
+  body[data-theme="rose"]{--cyan:#ff8fcf;--cyan-soft:#ffe8f6;--amber:#ffd1ea;--float-rgb:255,143,207;--float-light:#ffe8f6;--float-core:#ef5bae;--float-deep:#46102f}
+  body[data-theme="starlight"]{--cyan:#858cff;--cyan-soft:#e8eaff;--amber:#d8a7ff;--float-rgb:133,140,255;--float-light:#e8eaff;--float-core:#696fff;--float-deep:#171947}
+  body[data-theme="pearl"]{--cyan:#dcecff;--cyan-soft:#fff;--amber:#d9c8ff;--float-rgb:220,236,255;--float-light:#fff;--float-core:#a9c7e8;--float-deep:#283545}
+  body[data-theme="bluefire"]{--cyan:#45bfff;--cyan-soft:#dff6ff;--amber:#77fff2;--float-rgb:69,191,255;--float-light:#dff6ff;--float-core:#188fe3;--float-deep:#073d70}
+  body[data-theme="blush"]{--cyan:#ffacd8;--cyan-soft:#fff0f8;--amber:#e6b6ff;--float-rgb:255,172,216;--float-light:#fff0f8;--float-core:#ed73b5;--float-deep:#55223f}
+  body[data-theme="lavender"]{--cyan:#c8a8ff;--cyan-soft:#f5efff;--amber:#ffbde1;--float-rgb:200,168,255;--float-light:#f5efff;--float-core:#a77aef;--float-deep:#3b275c}
+  body[data-theme="sakura"]{--cyan:#ffb7c9;--cyan-soft:#fff1f5;--amber:#ffcfe8;--float-rgb:255,183,201;--float-light:#fff1f5;--float-core:#ed809e;--float-deep:#5b2638}
+  body[data-theme="pinkpearl"]{--cyan:#ffd3e5;--cyan-soft:#fff8fb;--amber:#e8d1ff;--float-rgb:255,211,229;--float-light:#fff8fb;--float-core:#dca2ba;--float-deep:#49323f}
+  body[data-theme="champagne"]{--cyan:#f6cf9f;--cyan-soft:#fff6e8;--amber:#f2a9c7;--float-rgb:246,207,159;--float-light:#fff6e8;--float-core:#d9a866;--float-deep:#4c3521}
+  body[data-theme="quantum"]{--cyan:#28f7ff;--cyan-soft:#dcffff;--amber:#8c5cff;--float-rgb:40,247,255;--float-light:#dcffff;--float-core:#14cbd8;--float-deep:#073a45}
+  body[data-theme="hologram"]{--cyan:#54fff0;--cyan-soft:#e4fffc;--amber:#62a7ff;--float-rgb:84,255,240;--float-light:#e4fffc;--float-core:#24d7c9;--float-deep:#0a4142}
+  body[data-theme="eclipse"]{--cyan:#f4cf72;--cyan-soft:#fff5d5;--amber:#ff885c;--float-rgb:244,207,114;--float-light:#fff5d5;--float-core:#d3a839;--float-deep:#3f3010}
+  body[data-theme="royal"]{--cyan:#e9f4ff;--cyan-soft:#fff;--amber:#b8dcff;--float-rgb:233,244,255;--float-light:#fff;--float-core:#9dc9ed;--float-deep:#33485d}
+  body[data-theme="venus"]{--cyan:#ff79bd;--cyan-soft:#ffe8f5;--amber:#a98cff;--float-rgb:255,121,189;--float-light:#ffe8f5;--float-core:#e64c9a;--float-deep:#5b123c}
+  body[data-theme="silk"]{--cyan:#f7b8e5;--cyan-soft:#fff1fb;--amber:#d9b8ff;--float-rgb:247,184,229;--float-light:#fff1fb;--float-core:#d988c1;--float-deep:#50304d}
+  body[data-theme="quantum"] .jf-core{animation-duration:.8s}
+  body[data-theme="hologram"] .jf-halo::after{animation-duration:2.2s}
+  body[data-theme="eclipse"] .jf-core{filter:drop-shadow(0 0 12px rgba(244,207,114,.8))}
+  body[data-theme="royal"] .jf-halo{animation-duration:3.8s}
+  body[data-theme="venus"] .jf-stage{animation-duration:2.8s}
+  body[data-theme="silk"] .jf-halo{animation-duration:4.2s}
+  body[data-theme="singularity"] .jf-core{animation:floatSingularity 2.4s ease-in-out infinite}
+  body[data-theme="noir"] .jf-stage{animation:floatNoir 5.8s steps(1) infinite}
+  body[data-theme="pinkaurora"] .jf-halo{animation:floatAurora 4.8s ease-in-out infinite}
+  body[data-theme="thunder"] .jf-core{animation:floatThunder 3.7s steps(1) infinite}
+  body[data-theme="wildfire"] .jf-halo::after{animation:floatWildfire 1.8s linear infinite}
+  body[data-theme="supernova"] .jf-stage{animation:floatSupernova 4.2s ease-out infinite}
+  body[data-theme="pulsar"] .jf-core{animation:floatPulsar 1.45s cubic-bezier(.2,.7,.2,1) infinite}
+  body[data-theme="eventhorizon"] .jf-halo{animation:floatHorizon 4.6s linear infinite}
+  body[data-theme="lasergrid"] .jf-rings{animation:floatLaser 2.2s linear infinite}
+  body[data-theme="chroma"] .jf-stage{animation:floatChroma 3.4s linear infinite}
+  @keyframes floatSingularity{0%,100%{transform:scale(.88);filter:drop-shadow(0 0 5px var(--cyan))}50%{transform:scale(1.08);filter:drop-shadow(0 0 20px var(--amber))}}
+  @keyframes floatNoir{0%,91%,94%,100%{opacity:1}92%{opacity:.45}93%{opacity:.8}}
+  @keyframes floatAurora{0%,100%{filter:hue-rotate(0deg);transform:scale(.96)}50%{filter:hue-rotate(32deg);transform:scale(1.08)}}
+  @keyframes floatThunder{0%,82%,86%,100%{filter:brightness(1)}83%{filter:brightness(3.2)}84%{filter:brightness(.55)}85%{filter:brightness(2)}}
+  @keyframes floatWildfire{from{transform:rotate(0deg) scale(.9);opacity:.25}50%{transform:rotate(180deg) scale(1.16);opacity:.8}to{transform:rotate(360deg) scale(.9);opacity:.25}}
+  @keyframes floatSupernova{0%,72%,100%{transform:scale(.94)}84%{transform:scale(1.2);filter:brightness(2.2)}}
+  @keyframes floatPulsar{0%,100%{transform:scale(.88)}12%{transform:scale(1.16);filter:brightness(1.8)}25%{transform:scale(.95)}}
+  @keyframes floatHorizon{to{transform:rotate(360deg);filter:hue-rotate(360deg)}}
+  @keyframes floatLaser{to{transform:rotateZ(360deg);filter:drop-shadow(0 0 8px var(--amber))}}
+  @keyframes floatChroma{to{filter:hue-rotate(360deg);transform:rotateY(360deg)}}
+  body.float-focus{ --cyan:#79f2ff; --cyan-soft:#e2fbff; --amber:#8fdcff; }
+  body.float-combat{ --cyan:#ff5c5c; --cyan-soft:#ffd6cf; --amber:#ffb454; }
+  body.float-rest{ --cyan:#9db2ff; --cyan-soft:#e3e7ff; --amber:#c9a8ff; }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:transparent; /* overlay stays fully transparent — the AMOLED win comes from zero lit pixels around the button, not a black backdrop */
+    font-family:Consolas, "Segoe UI", monospace;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+  body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding-bottom:16px;
+  }
+  #floatingParticles{
+    position:fixed; inset:0; width:100%; height:100%; display:block;
+    pointer-events:none; z-index:0;
+  }
+  #maiaFloatBtn{
+    position:relative;
+    z-index:1;
+    width:82px;
+    height:82px;
+    cursor:grab;
+    touch-action:none;
+    border:0;
+    background:none;
+    padding:0;
+    margin:0;
+    outline:0;
+    perspective:340px;
+    opacity:0;
+    transform:scale(.35);
+    animation:enter .42s cubic-bezier(.2,.9,.2,1) forwards;
+    contain:layout; /* mantém isolamento de layout sem recortar halo e rótulo */
+  }
+  #maiaFloatBtn:focus-visible{
+    outline:0;
+  }
+  #maiaFloatBtn:focus-visible .jf-halo{
+    filter:drop-shadow(0 0 8px var(--cyan));
+  }
+  #maiaFloatBtn:active{ cursor:grabbing; }
+  @keyframes enter{
+    to{ opacity:1; transform:scale(1); }
+  }
+  #maiaFloatBtn .jf-stage{
+    position:relative;
+    width:100%;
+    height:100%;
+    transform-style:preserve-3d;
+    will-change:transform;
+    animation:breathe 4.2s ease-in-out infinite;
+  }
+  @keyframes breathe{
+    0%,100%{ transform:translateZ(0) scale(1); }
+    50%{ transform:translateZ(6px) scale(1.035); }
+  }
+  /* Halo: no blur filter — the gradient's own falloff is soft enough,
+     saves a full filter-pass on every frame */
+  .jf-halo{
+    position:absolute;
+    inset:-22px;
+    border-radius:50%;
+    transform:translateZ(-26px);
+    background:radial-gradient(circle, rgba(var(--float-rgb),.34) 0%, rgba(var(--float-rgb),.1) 42%, rgba(var(--float-rgb),.025) 62%, transparent 76%);
+    will-change:transform,opacity;
+    animation:none;
+    opacity:.72;
+    pointer-events:none;
+  }
+  .jf-halo::after{
+    content:"";position:absolute;inset:8px;border-radius:46% 54% 51% 49%;
+    background:conic-gradient(from 20deg,transparent 0 8%,rgba(115,242,255,.72) 12%,transparent 19% 31%,rgba(35,178,255,.48) 38%,transparent 46% 61%,rgba(180,250,255,.65) 67%,transparent 75% 88%,rgba(54,212,255,.55) 94%,transparent);
+    -webkit-mask:radial-gradient(circle,transparent 48%,#000 58%,transparent 73%);
+    mask:radial-gradient(circle,transparent 48%,#000 58%,transparent 73%);
+    filter:blur(2px) drop-shadow(0 0 7px rgba(67,220,255,.9));
+    animation:plasmaCorona 3.4s linear infinite;
+  }
+  @keyframes plasmaCorona{to{transform:rotate(360deg) scale(1.06)}}
+  body.float-focus .jf-halo{ background:radial-gradient(circle, rgba(121,242,255,.38) 0%, rgba(121,242,255,.1) 42%, rgba(121,242,255,.025) 62%, transparent 76%); }
+  body.float-focus .jf-halo::after{ border-color:rgba(121,242,255,.55); box-shadow:0 0 9px rgba(121,242,255,.55), inset 0 0 8px rgba(121,242,255,.22); }
+  body.float-combat .jf-halo{ background:radial-gradient(circle, rgba(255,92,92,.46) 0%, rgba(255,92,92,.11) 42%, rgba(255,92,92,.025) 62%, transparent 76%); }
+  body.float-combat .jf-halo::after{ border-color:rgba(255,92,92,.62); box-shadow:0 0 11px rgba(255,92,92,.62), inset 0 0 9px rgba(255,92,92,.25); }
+  body.float-rest .jf-halo{ background:radial-gradient(circle, rgba(157,178,255,.34) 0%, rgba(157,178,255,.09) 42%, rgba(157,178,255,.02) 62%, transparent 76%); }
+  body.float-rest .jf-halo::after{ border-color:rgba(157,178,255,.5); box-shadow:0 0 9px rgba(157,178,255,.5), inset 0 0 8px rgba(157,178,255,.2); }
+  @keyframes haloPulse{
+    0%,100%{ opacity:.5; transform:translateZ(-26px) scale(.92); }
+    50%{ opacity:.92; transform:translateZ(-26px) scale(1.1); }
+  }
+  body.float-combat .jf-label{ color:#ffd0c7; text-shadow:0 0 8px rgba(255,107,107,.75); }
+
+  /* Core: true-black falloff (pure #000, not navy) so the glow reads as
+     light suspended in real OLED void; shadow layers trimmed from 4 to 2 */
+  .jf-core{
+    position:absolute;
+    inset:-1px;
+    border-radius:50%;
+    transform:translateZ(14px);
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255,255,255,.95) 0%, rgba(217,251,255,.55) 8%, rgba(107,233,255,.05) 26%, transparent 40%),
+      radial-gradient(circle at 50% 55%, var(--float-light) 0%, var(--float-core) 32%, var(--float-deep) 66%, var(--void) 100%);
+    box-shadow:
+      0 0 20px rgba(var(--float-rgb),.5),
+      inset 0 -6px 12px rgba(0,0,0,.65);
+    border:1px solid rgba(var(--float-rgb),.45);
+  }
+  body.float-focus .jf-core{
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255,255,255,.95) 0%, rgba(211,251,255,.68) 8%, rgba(122,244,255,.08) 26%, transparent 40%),
+      radial-gradient(circle at 50% 55%, #d3fbff 0%, #5bdfff 32%, #0a3648 66%, var(--void) 100%);
+  }
+  body.float-combat .jf-core{
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255,255,255,.95) 0%, rgba(255,208,199,.64) 8%, rgba(255,107,107,.08) 26%, transparent 40%),
+      radial-gradient(circle at 50% 55%, #ffd0c7 0%, #ff5a5a 32%, #4a0b0b 66%, var(--void) 100%);
+    box-shadow:
+      0 0 22px rgba(255,107,107,.62),
+      inset 0 -6px 12px rgba(0,0,0,.65);
+    animation:floatCombatAlert 1s ease-in-out infinite;
+  }
+  body.float-rest .jf-core{
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255,255,255,.95) 0%, rgba(216,221,255,.6) 8%, rgba(146,167,255,.08) 26%, transparent 40%),
+      radial-gradient(circle at 50% 55%, #d8ddff 0%, #7d8fff 32%, #161c42 66%, var(--void) 100%);
+  }
+  @keyframes floatCombatAlert{
+    0%,100%{ filter:brightness(1); transform:translateZ(14px) scale(1); }
+    50%{ filter:brightness(1.4); transform:translateZ(14px) scale(1.05); }
+  }
+  .jf-core::before{
+    content:"";position:absolute;inset:-15%;border-radius:44% 56% 48% 52%;
+    background:conic-gradient(from 0deg,rgba(35,190,255,.05),rgba(92,236,255,.5),rgba(8,89,148,.08),rgba(192,253,255,.6),rgba(35,190,255,.05));
+    -webkit-mask:radial-gradient(circle,transparent 52%,#000 61%,transparent 76%);
+    mask:radial-gradient(circle,transparent 52%,#000 61%,transparent 76%);
+    filter:blur(3px);mix-blend-mode:screen;animation:corePlasma 2.2s ease-in-out infinite alternate;
+  }
+  @keyframes corePlasma{0%{transform:rotate(-12deg) scale(.94);opacity:.55}100%{transform:rotate(38deg) scale(1.1);opacity:1}}
+  .jf-core::after{
+    content:"";
+    position:absolute;
+    inset:22%;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,.9) 0%, rgba(107,233,255,.5) 45%, transparent 75%);
+    will-change:transform,opacity;
+    animation:none;
+    opacity:.72;
+    transform:scale(.95);
+    mix-blend-mode:screen;
+  }
+  @keyframes corePulse{
+    0%,100%{ opacity:.52; transform:scale(.82); }
+    50%{ opacity:1; transform:scale(1.08); }
+  }
+  .jf-spec{
+    position:absolute;
+    width:34%;
+    height:20%;
+    left:20%;
+    top:14%;
+    border-radius:50%;
+    transform:translateZ(15px) rotate(-18deg);
+    background:linear-gradient(180deg, rgba(255,255,255,.8), rgba(255,255,255,0));
+    opacity:.7;
+    pointer-events:none;
+  }
+  .jf-label{
+    position:absolute;
+    bottom:-23px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:8px;
+    letter-spacing:2.5px;
+    color:var(--cyan);
+    opacity:1;
+    white-space:nowrap;
+    pointer-events:none;
+    text-shadow:0 0 5px rgba(91,230,255,.9), 0 0 12px rgba(91,230,255,.55);
+    z-index:20;
+    transition:color .4s var(--ease-soft), text-shadow .4s var(--ease-soft);
+  }
+  body.float-focus .jf-label{ color:#79f2ff; text-shadow:0 0 5px rgba(121,242,255,.95), 0 0 12px rgba(121,242,255,.55); }
+  body.float-rest .jf-label{ color:#9db2ff; text-shadow:0 0 5px rgba(157,178,255,.95), 0 0 12px rgba(157,178,255,.55); }
+  .jf-flash{
+    position:absolute;
+    inset:-30%;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(107,233,255,.5) 32%, rgba(107,233,255,0) 70%);
+    opacity:0;
+    transform:scale(.2);
+    pointer-events:none;
+    mix-blend-mode:screen;
+  }
+  #maiaFloatBtn.opening .jf-flash{ animation:flash .6s cubic-bezier(.2,.7,.3,1) forwards; }
+  @keyframes flash{
+    0%{ opacity:0; transform:scale(.2); }
+    32%{ opacity:1; transform:scale(1.35); }
+    100%{ opacity:0; transform:scale(2.8); }
+  }
+  #maiaFloatBtn.opening .jf-core{ animation:coreFlare .6s ease-out; }
+  @keyframes coreFlare{
+    0%{ filter:brightness(1) saturate(1); }
+    30%{ filter:brightness(2.2) saturate(1.35); }
+    100%{ filter:brightness(1) saturate(1); }
+  }
+  #maiaFloatBtn.opening .jf-halo{ animation:haloBurst .6s ease-out forwards; }
+  @keyframes haloBurst{
+    0%{ transform:translateZ(-26px) scale(1); opacity:1; }
+    100%{ transform:translateZ(-26px) scale(3); opacity:0; }
+  }
+  #maiaFloatBtn.dragging .jf-stage{
+    animation-play-state:paused;
+    transform:scale(1.06);
+    transition:transform .18s var(--ease-out);
+  }
+  body.float-idle .jf-stage,body.float-idle .jf-halo::after,body.float-idle .jf-core::before{animation-play-state:paused!important}
+
+  /* Respect low-power / reduced-motion: drop every infinite loop,
+     keep only the one-shot open feedback so the widget stays legible
+     without burning cycles at rest */
+  @media (prefers-reduced-motion:reduce){
+    #maiaFloatBtn{ animation:none; opacity:1; transform:scale(1); }
+    .jf-stage{ animation:none !important; }
+    .jf-halo{ animation:none !important; opacity:.6; }
+    .jf-core::before{
+    content:"";position:absolute;inset:-15%;border-radius:44% 56% 48% 52%;
+    background:conic-gradient(from 0deg,rgba(35,190,255,.05),rgba(92,236,255,.5),rgba(8,89,148,.08),rgba(192,253,255,.6),rgba(35,190,255,.05));
+    -webkit-mask:radial-gradient(circle,transparent 52%,#000 61%,transparent 76%);
+    mask:radial-gradient(circle,transparent 52%,#000 61%,transparent 76%);
+    filter:blur(3px);mix-blend-mode:screen;animation:corePlasma 2.2s ease-in-out infinite alternate;
+  }
+  @keyframes corePlasma{0%{transform:rotate(-12deg) scale(.94);opacity:.55}100%{transform:rotate(38deg) scale(1.1);opacity:1}}
+  .jf-core::after{ animation:none !important; opacity:.8; }
+    body.float-combat .jf-core{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="floatingParticles" aria-hidden="true"></canvas>
+<button id="maiaFloatBtn" title="Abrir Maia" aria-label="Abrir Maia">
+  <div class="jf-stage">
+    <div class="jf-halo"></div>
+    <div class="jf-core"></div>
+    <div class="jf-spec"></div>
+    <div class="jf-flash"></div>
+  </div>
+  <div class="jf-label">MAIA</div>
+</button>
+<script src="../../node_modules/three/build/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  window.floatingLastActivity = performance.now();
+  ['copy', 'cut', 'contextmenu', 'dragstart', 'selectstart'].forEach((eventName) => {
+    document.addEventListener(eventName, (event) => event.preventDefault(), {capture:true});
+  });
+  document.addEventListener('keydown', (event) => {
+    if((event.ctrlKey || event.metaKey) && ['a', 'c', 'x'].includes(String(event.key).toLowerCase())) event.preventDefault();
+  }, {capture:true});
+  let ctx = null;
+  let masterGain = null;
+  let analyser = null;
+  let enabled = true;
+  let volume = .42;
+
+  function ensureAudio(){
+    if(ctx) return ctx;
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if(!AudioCtor) return null;
+    ctx = new AudioCtor();
+    masterGain = ctx.createGain();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = .7;
+    masterGain.gain.value = volume;
+    masterGain.connect(analyser);
+    analyser.connect(ctx.destination);
+    return ctx;
+  }
+
+  function connectGain(gain){
+    gain.connect(masterGain || ensureAudio().destination);
+  }
+
+  function playOpen(){
+    if(!enabled) return;
+    const audio = ensureAudio();
+    if(!audio) return;
+    if(audio.state === "suspended") audio.resume().catch(() => {});
+    const now = audio.currentTime;
+
+    const thump = audio.createOscillator();
+    const thumpGain = audio.createGain();
+    thump.type = "sine";
+    thump.frequency.setValueAtTime(150, now);
+    thump.frequency.exponentialRampToValueAtTime(45, now + .22);
+    thumpGain.gain.setValueAtTime(.0001, now);
+    thumpGain.gain.exponentialRampToValueAtTime(.34, now + .025);
+    thumpGain.gain.exponentialRampToValueAtTime(.0001, now + .28);
+    thump.connect(thumpGain);
+    connectGain(thumpGain);
+    thump.start(now);
+    thump.stop(now + .3);
+
+    const sweep = audio.createOscillator();
+    const sweepFilter = audio.createBiquadFilter();
+    const sweepGain = audio.createGain();
+    sweep.type = "sawtooth";
+    sweep.frequency.setValueAtTime(220, now);
+    sweep.frequency.exponentialRampToValueAtTime(1400, now + .26);
+    sweepFilter.type = "lowpass";
+    sweepFilter.frequency.setValueAtTime(620, now);
+    sweepFilter.frequency.exponentialRampToValueAtTime(4200, now + .24);
+    sweepGain.gain.setValueAtTime(.0001, now);
+    sweepGain.gain.exponentialRampToValueAtTime(.12, now + .04);
+    sweepGain.gain.exponentialRampToValueAtTime(.0001, now + .36);
+    sweep.connect(sweepFilter);
+    sweepFilter.connect(sweepGain);
+    connectGain(sweepGain);
+    sweep.start(now);
+    sweep.stop(now + .38);
+
+    [1760, 2349, 3136].forEach((freq, index) => {
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      const start = now + .05 + index * .018;
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(.0001, start);
+      gain.gain.exponentialRampToValueAtTime(.08 / (index + 1), start + .025);
+      gain.gain.exponentialRampToValueAtTime(.0001, start + .24);
+      osc.connect(gain);
+      connectGain(gain);
+      osc.start(start);
+      osc.stop(start + .26);
+    });
+  }
+
+  function playPickup(){
+    if(!enabled) return;
+    const audio = ensureAudio();
+    if(!audio) return;
+    if(audio.state === "suspended") audio.resume().catch(() => {});
+    const now = audio.currentTime;
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(900, now);
+    osc.frequency.exponentialRampToValueAtTime(650, now + .08);
+    gain.gain.setValueAtTime(.0001, now);
+    gain.gain.exponentialRampToValueAtTime(.075, now + .012);
+    gain.gain.exponentialRampToValueAtTime(.0001, now + .09);
+    osc.connect(gain);
+    connectGain(gain);
+    osc.start(now);
+    osc.stop(now + .1);
+  }
+
+  window.MaiaSound = {
+    playOpen,
+    playPickup,
+    getAnalyser(){ return analyser; },
+    setEnabled(value){ enabled = !!value; },
+    setVolume(value){
+      volume = Math.max(0, Math.min(1, Number(value)));
+      if(masterGain) masterGain.gain.value = volume;
+    }
+  };
+})();
+
+(function(){
+  "use strict";
+  if(!window.THREE) return;
+  const canvas = document.getElementById("floatingParticles");
+  const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:false, powerPreference:"low-power"});
+  renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(48, 1, .1, 20);
+  camera.position.z = 5.2;
+  const count = 180;
+  const positions = new Float32Array(count * 3);
+  const origins = new Float32Array(count * 3);
+  const bins = new Uint8Array(count);
+  for(let i=0;i<count;i++){
+    const angle = Math.random() * Math.PI * 2;
+    const z = Math.random() * 2 - 1;
+    const radial = Math.sqrt(1 - z*z);
+    const radius = 1.05 + Math.random() * 1.2;
+    const o = i * 3;
+    origins[o] = positions[o] = Math.cos(angle) * radial * radius;
+    origins[o+1] = positions[o+1] = Math.sin(angle) * radial * radius;
+    origins[o+2] = positions[o+2] = z * radius;
+    bins[i] = Math.floor(Math.pow(Math.random(), 1.6) * 110);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const particleColors = new Float32Array(count*3);
+  function colorizeParticles(primary=0x5be6ff, accent=0xffb454){
+    const a=new THREE.Color(primary),b=new THREE.Color(accent);
+    for(let i=0;i<count;i++){const c=i%5===0?b:a,o=i*3;particleColors[o]=c.r;particleColors[o+1]=c.g;particleColors[o+2]=c.b;}
+    if(geometry.attributes.color) geometry.attributes.color.needsUpdate=true;
+  }
+  colorizeParticles();
+  geometry.setAttribute("color",new THREE.BufferAttribute(particleColors,3));
+  function createRoundParticleTexture(){
+    const textureCanvas = document.createElement("canvas");
+    textureCanvas.width = textureCanvas.height = 64;
+    const context = textureCanvas.getContext("2d");
+    const glow = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    glow.addColorStop(0, "rgba(255,255,255,1)");
+    glow.addColorStop(.22, "rgba(255,255,255,.98)");
+    glow.addColorStop(.55, "rgba(255,255,255,.55)");
+    glow.addColorStop(.82, "rgba(255,255,255,.12)");
+    glow.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = glow;
+    context.fillRect(0, 0, 64, 64);
+    const texture = new THREE.CanvasTexture(textureCanvas);
+    if("colorSpace" in texture) texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+    return texture;
+  }
+  const material = new THREE.PointsMaterial({
+    color:0xffffff,
+    vertexColors:true,
+    size:.095,
+    map:createRoundParticleTexture(),
+    transparent:true,
+    alphaTest:.015,
+    opacity:.78,
+    blending:THREE.AdditiveBlending,
+    depthWrite:false
+  });
+  const particles = new THREE.Points(geometry, material);
+  scene.add(particles);
+  let captureAnalyser = null;
+  let captureData = null;
+  let capturePending = false;
+  let captureStream = null;
+  let captureContext = null;
+  let last = 0;
+  let energy = 0;
+  let fallbackCaptureData = null;
+  let lastColorShift = 0;
+  let colorHueOffset = 0;
+  const dynamicColor = new THREE.Color();
+
+  function resize(){
+    const width = innerWidth || 150;
+    const height = innerHeight || 150;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    camera.position.y = .28;
+  }
+
+  async function startOutputCapture(){
+    if(captureAnalyser || capturePending || !navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return;
+    capturePending = true;
+    try{
+      const stream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:true});
+      captureStream = stream;
+      stream.getVideoTracks().forEach(track => track.stop());
+      if(!stream.getAudioTracks().length) throw new Error("Sem áudio de saída");
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      const context = new AudioCtor();
+      captureContext = context;
+      captureAnalyser = context.createAnalyser();
+      captureAnalyser.fftSize = 256;
+      captureAnalyser.smoothingTimeConstant = .72;
+      context.createMediaStreamSource(stream).connect(captureAnalyser);
+      captureData = new Uint8Array(captureAnalyser.frequencyBinCount);
+      stream.getAudioTracks()[0].addEventListener("ended", () => {
+        captureAnalyser = null;
+        captureData = null;
+        captureStream = null;
+        captureContext = null;
+        context.close().catch(() => {});
+      }, {once:true});
+      if(context.state === "suspended") await context.resume();
+    }catch(err){}finally{
+      capturePending = false;
+    }
+  }
+
+  function updateParticleColors(now,reactivity){
+    if(now-lastColorShift<80)return;
+    lastColorShift=now;
+    const time=now*.000035;
+    for(let i=0;i<count;i++){
+      const o=i*3,phase=i/count;
+      const hue=(time+colorHueOffset+phase*.82+Math.sin(time*8+i*.17)*.025)%1;
+      dynamicColor.setHSL(hue,.78,Math.min(.72,.5+reactivity*.18+(i%5===0?.1:0)));
+      particleColors[o]=dynamicColor.r;particleColors[o+1]=dynamicColor.g;particleColors[o+2]=dynamicColor.b;
+    }
+    geometry.attributes.color.needsUpdate=true;
+  }
+  function stopOutputCapture(){
+    if(captureStream){captureStream.getTracks().forEach(track=>{try{track.stop()}catch(err){}});captureStream=null;}
+    if(captureContext){captureContext.close().catch(()=>{});captureContext=null;}
+    captureAnalyser=null;captureData=null;capturePending=false;
+  }
+  function animate(now){
+    requestAnimationFrame(animate);
+    const idle = now - Number(window.floatingLastActivity || 0) > 20000 && energy < .08;
+    document.body.classList.toggle("float-idle", idle);
+    if(document.hidden || now - last < 1000/(idle ? 8 : 30)) return;
+    const dt = last ? Math.min(60, now-last) : 16.7;
+    last = now;
+    const analyser = captureAnalyser || (window.MaiaSound && window.MaiaSound.getAnalyser());
+    let data = captureData;
+    if(analyser){
+      if(!data || data.length !== analyser.frequencyBinCount){
+        if(!fallbackCaptureData || fallbackCaptureData.length !== analyser.frequencyBinCount) fallbackCaptureData = new Uint8Array(analyser.frequencyBinCount);
+        data = fallbackCaptureData;
+      }
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for(let i=1;i<Math.min(80,data.length);i++) sum += data[i];
+      const next = sum / (Math.min(80,data.length)-1) / 255;
+      energy += (Math.min(1, next * 2.8) - energy) * (next > energy ? .38 : .12);
+    }else{
+      energy += (.04 - energy) * .05;
+    }
+    updateParticleColors(now,energy);
+    const t = now*.001;
+    for(let i=0;i<count;i++){
+      const o=i*3,band=data?data[Math.min(data.length-1,bins[i])]/255:0;
+      const scale=1+band*.52+energy*.18,drift=Math.sin(t*1.8+i*.61)*(.015+energy*.045);
+      positions[o]+=(origins[o]*scale+drift-positions[o])*Math.min(.38,dt*.016);
+      positions[o+1]+=(origins[o+1]*scale-drift-positions[o+1])*Math.min(.38,dt*.016);
+      positions[o+2]+=(origins[o+2]*scale-positions[o+2])*Math.min(.38,dt*.016);
+    }
+    geometry.attributes.position.needsUpdate=true;
+    particles.rotation.y+=(.003+energy*.035)*(dt/16.7);
+    particles.rotation.x=Math.sin(t*.42)*.12;    material.size = .075 + energy*.13;
+    material.opacity = .5 + energy*.48;
+    renderer.render(scene,camera);
+  }
+
+  window.MaiaParticles = {
+    setMode(mode){
+      colorHueOffset=mode==="combat"?.96:mode==="rest"?.62:mode==="focus"?.48:0;
+      lastColorShift=0;
+    },
+    setTheme(theme){
+      const color = getComputedStyle(document.body).getPropertyValue("--cyan").trim() || "#5be6ff";
+      const hsl = {};
+      new THREE.Color(color).getHSL(hsl);
+      colorHueOffset = hsl.h || 0;
+      lastColorShift=0;
+    },
+    startOutputCapture
+  };
+  let resizeQueued = false;
+  addEventListener("resize", () => {
+    if(resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(() => { resizeQueued = false; resize(); });
+  }, {passive:true});
+  addEventListener("pointerdown",startOutputCapture,{once:true,passive:true});
+  document.addEventListener("visibilitychange",()=>{ if(document.hidden) stopOutputCapture(); else startOutputCapture(); });
+  renderer.domElement.addEventListener("webglcontextlost",(event)=>{event.preventDefault();stopOutputCapture();setTimeout(()=>location.reload(),1200)},{once:true});
+  resize();
+  setTimeout(()=>{if(!document.hidden)startOutputCapture()},300);
+  requestAnimationFrame(animate);
+})();
+
+(function(){
+  "use strict";
+  const btn = document.getElementById("maiaFloatBtn");
+  const baseFloatingThemes=["classic","iron","neon","arctic","violet","solar","ocean","minimal","rose","blush","lavender","sakura","pinkpearl","champagne","starlight","pearl","bluefire","quantum","hologram","eclipse","royal","venus","silk"];
+  const floatingThemeCatalog20={
+    plasma:["#19f5d2","#d9fff8","#ff5cc8","#0fd0ba","#063d3a"],cyber:["#ff3dbb","#ffe0f6","#35e8ff","#dc269f","#4b0a38"],ion:["#9b6cff","#eee6ff","#43ffd1","#7948e8","#2b1857"],nebula:["#6d7dff","#e5e8ff","#ff6fb7","#5362df","#222856"],matrixgreen:["#39ff71","#ddffe6","#b7ff35","#1fd957","#0a3c1a"],singularity:["#a86bff","#f4eaff","#f0d8ff","#6f35c8","#2b104d"],
+    obsidian:["#8da0b7","#e7edf3","#f0b95e","#68798d","#20262d"],sapphire:["#347cff","#dfebff","#a9d4ff","#225dd1","#0b285d"],emeraldlux:["#28d99a","#ddfff3","#e0c56e","#17ad78","#0a3b2c"],bronze:["#d48a4a","#ffead8","#ffd18a","#b16731","#442711"],noir:["#e5e7eb","#ffffff","#ffffff","#9ca3af","#17191d"],
+    coral:["#ff806e","#ffe7e2","#72f0db","#eb6256","#4a1d19"],lilacmist:["#d0a2ff","#f5eaff","#8de9ff","#b57ce8","#38234d"],moonrose:["#ed91bd","#ffe7f2","#d8dcff","#d16c9d","#482139"],serenity:["#78b8e8","#e5f4ff","#c4ffe7","#5d99c8","#16364e"],pinkaurora:["#ff91df","#ffe9fa","#75ffe7","#d96ec0","#512044"],
+    forest:["#42c979","#e2ffeb","#b2e65c","#279e59","#123d26"],volcano:["#ff6338","#ffe5dc","#ffbd3f","#df3d22","#55170c"],glacier:["#a7ecff","#f4fdff","#e8f8ff","#70cde8","#214351"],storm:["#4f91bd","#e1f2ff","#b9d1ff","#36759e","#173247"],desert:["#e6aa55","#fff0d8","#ffe09b","#c88436","#4b3215"],lagoon:["#22e6bf","#dcfff8","#70a8ff","#10b99e","#07483f"],thunder:["#80c8ff","#e8f6ff","#a077ff","#4da2e5","#183a58"],wildfire:["#ff5b21","#ffe4d9","#ffd23f","#e13b12","#5a1606"],
+    mars:["#d9684a","#ffe6df","#f3b56c","#b84a34","#462016"],saturn:["#d8bd83","#fff3d9","#8ba9d9","#b69962","#40351e"],galaxy:["#6657d9","#e8e5ff","#e06acb","#4c3dbb","#211754"],supernova:["#ffb347","#fff0d8","#ff4d8d","#ff7b32","#5b2509"],blackhole:["#716b91","#dedbea","#d19cff","#514b72","#171326"],comet:["#c6f4ff","#ffffff","#ffd0a1","#8edcf0","#253e4b"],pulsar:["#50e8ff","#e2fbff","#ff74d6","#28bcd5","#0a4051"],eventhorizon:["#ff7a32","#ffe6d8","#8b5cff","#d94b21","#4d1608"],
+    synthwave:["#ff4fbc","#ffe2f6","#36d9ff","#d52d9b","#4f0c3c"],arcade:["#46ff66","#e0ffe5","#ffe34d","#28dc45","#0b3e17"],amberterminal:["#ffb52e","#fff0cf","#ffe08a","#d88d15","#412805"],vaporwave:["#d675ff","#f6e5ff","#62e4ff","#b751df","#421b59"],lasergrid:["#39ff8a","#dcffe9","#ff3fcf","#1ed668","#063d21"],chroma:["#31e8ff","#e0fbff","#ff355e","#ff355e","#202052"]
+  };
+  const savedFloatingThemes=[...baseFloatingThemes,...Object.keys(floatingThemeCatalog20)];
+  function applyFloatingTheme20(theme){
+    const selected=savedFloatingThemes.includes(theme)?theme:"classic";
+    for(const property of ["--cyan","--cyan-soft","--amber","--float-rgb","--float-light","--float-core","--float-deep"]) document.body.style.removeProperty(property);
+    const palette=floatingThemeCatalog20[selected];
+    if(palette){
+      const rgb=palette[0].match(/[a-f\d]{2}/gi).map(value=>parseInt(value,16)).join(",");
+      document.body.style.setProperty("--cyan",palette[0]);
+      document.body.style.setProperty("--cyan-soft",palette[1]);
+      document.body.style.setProperty("--amber",palette[2]);
+      document.body.style.setProperty("--float-rgb",rgb);
+      document.body.style.setProperty("--float-light",palette[1]);
+      document.body.style.setProperty("--float-core",palette[3]);
+      document.body.style.setProperty("--float-deep",palette[4]);
+    }
+    document.body.dataset.theme=selected;
+    localStorage.setItem("Maia.floatingTheme",selected);
+    if(window.MaiaParticles) window.MaiaParticles.setTheme(selected);
+    return selected;
+  }
+  const savedFloatingTheme=localStorage.getItem("Maia.floatingTheme");
+  if(savedFloatingThemes.includes(savedFloatingTheme)) applyFloatingTheme20(savedFloatingTheme);
+  const stage = btn.querySelector(".jf-stage");
+  let dragging = false;
+  let moved = false;
+  let startX = 0;
+  let startY = 0;
+  let lastX = 0;
+  let lastY = 0;
+  let targetRX = 0;
+  let targetRY = 0;
+  let curRX = 0;
+  let curRY = 0;
+  let tickScheduled = false;
+  const noteFloatingActivity = () => { window.floatingLastActivity = performance.now(); document.body.classList.remove("float-idle"); };
+
+  function scheduleTiltTick(){
+    if(tickScheduled) return;
+    tickScheduled = true;
+    requestAnimationFrame(tiltTick);
+  }
+  function tiltTick(){
+    tickScheduled = false;
+    curRX += (targetRX - curRX) * .18;
+    curRY += (targetRY - curRY) * .18;
+    stage.style.transform = "rotateX(" + curRX.toFixed(2) + "deg) rotateY(" + curRY.toFixed(2) + "deg)";
+    if(Math.abs(targetRX - curRX) > .05 || Math.abs(targetRY - curRY) > .05) scheduleTiltTick();
+  }
+  function openMaia(){
+    btn.classList.remove("opening");
+    void btn.offsetWidth;
+    btn.classList.add("opening");
+    if(window.MaiaSound) window.MaiaSound.playOpen();
+    setTimeout(() => {
+      if(window.maiaFloating) window.maiaFloating.openMain();
+    }, 230);
+  }
+
+
+  btn.addEventListener("pointerdown", (event) => {
+    noteFloatingActivity();
+    dragging = true;
+    moved = false;
+    startX = lastX = event.screenX;
+    startY = lastY = event.screenY;
+    btn.classList.add("dragging");
+    if(window.MaiaSound) window.MaiaSound.playPickup();
+    btn.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  btn.addEventListener("pointermove", (event) => {
+    const rect = btn.getBoundingClientRect();
+    const dxLocal = (event.clientX - rect.left - rect.width / 2) / rect.width;
+    const dyLocal = (event.clientY - rect.top - rect.height / 2) / rect.height;
+    targetRY = Math.max(-14, Math.min(14, dxLocal * 14));
+    targetRX = Math.max(-14, Math.min(14, -dyLocal * 14));
+    scheduleTiltTick();
+    if(!dragging) return;
+    const dx = event.screenX - lastX;
+    const dy = event.screenY - lastY;
+    if(Math.abs(event.screenX - startX) > 4 || Math.abs(event.screenY - startY) > 4) moved = true;
+    lastX = event.screenX;
+    lastY = event.screenY;
+    if(window.maiaFloating) window.maiaFloating.moveBy(dx, dy);
+    event.preventDefault();
+  });
+  btn.addEventListener("pointerup", (event) => {
+    if(!dragging) return;
+    dragging = false;
+    btn.classList.remove("dragging");
+    try{ btn.releasePointerCapture(event.pointerId); }catch(err){}
+    if(!moved) openMaia();
+  });
+  btn.addEventListener("pointercancel", () => {
+    dragging = false;
+    btn.classList.remove("dragging");
+  });
+  btn.addEventListener("mouseleave", () => {
+    targetRX = 0;
+    targetRY = 0;
+    scheduleTiltTick();
+  });
+  if(window.maiaFloating && window.maiaFloating.onMode){
+    window.maiaFloating.onMode((mode) => {
+      document.body.classList.remove("float-focus", "float-combat", "float-rest");
+      if(["focus", "combat", "rest"].includes(mode)) document.body.classList.add("float-" + mode);
+      if(window.MaiaParticles) window.MaiaParticles.setMode(mode);
+    });
+  }
+  if(window.maiaFloating && window.maiaFloating.onTheme){
+    window.maiaFloating.onTheme((theme) => {
+      applyFloatingTheme20(theme);
+    });
+  }
+  if(window.maiaFloating) window.maiaFloating.ready();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+{
+  "name": "maia-desktop",
+  "version": "5.3.0-beta.1",
+  "description": "Assistente pessoal para Windows com automações, integrações e controle pelo celular.",
+  "author": {
+    "name": "clchucro",
+    "url": "https://www.instagram.com/clchucro/"
+  },
+  "main": "src/main/main.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "check": "node scripts/validate-project.js",
+    "release:check": "node scripts/check-release.js",
+    "test:connect": "node scripts/test-connect.js",
+    "pack": "electron-builder --dir",
+    "dist": "npm run check && electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.maia.desktop",
+    "productName": "Maia",
+    "copyright": "Copyright © 2026 clchucro",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "!src/ui/*.before-visual.html",
+      "assets/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "icon": "assets/maia-icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Maia-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Maia",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

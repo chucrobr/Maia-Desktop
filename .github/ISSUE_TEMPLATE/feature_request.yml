@@ -1,0 +1,35 @@
+name: Sugerir uma função
+description: Proponha uma melhoria ou integração.
+title: "[Sugestão] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema isso resolve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Como deveria funcionar?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Windows
+        - Maia Connect
+        - Integrações
+        - Automação
+        - Interface e temas
+        - Desempenho
+        - Outra
+    validations:
+      required: true
