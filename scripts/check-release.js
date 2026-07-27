@@ -29,9 +29,12 @@ if (author !== "clchucro") failures.push("autor do package.json deve ser clchucr
 if (!String(pkg.version).includes("-beta.")) failures.push("a versão de publicação deve identificar o canal beta");
 
 const ui = fs.readFileSync(path.join(root, "src/ui/maia.html"), "utf8");
+const horizonUi = fs.readFileSync(path.join(root, "src/ui/maia-interface-2.html"), "utf8");
 const changelog = fs.readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");
 if (!ui.includes(`Versão:</b> ${pkg.version}`)) failures.push("versão da tela Sobre está diferente do pacote");
 if (!ui.includes(`NOVIDADES • MAIA ${pkg.version}`)) failures.push("versão das Novidades está diferente do pacote");
+if (!horizonUi.includes(pkg.version)) failures.push("versão visível da Horizon está diferente do pacote");
+if (!ui.includes("<title>MAIA Horizon</title>")) failures.push("título principal ainda não identifica a Horizon");
 if (!changelog.includes(`## ${pkg.version}`)) failures.push("versão ausente no changelog");
 
 for (const privateName of [".env", "arkama-webhook.json", "netlify-sales.json", "home-assistant.json", "mobility.json"]) {

@@ -87,13 +87,26 @@ function checkClockItems(){
   for(const item of clockItems){
     if(!item.done && Number(item.dueAt) <= now) fireClockItem(item);
   }
+  scheduleClockCheck();
+}
+
+function scheduleClockCheck(){
+  clearTimeout(clockTimer);
+  const now = Date.now();
+  const nextDueAt = clockItems
+    .filter(item => !item.done && Number.isFinite(Number(item.dueAt)))
+    .reduce((next, item) => Math.min(next, Number(item.dueAt)), Infinity);
+  // Acorda no evento mais próximo. O teto de um minuto também cobre alterações
+  // de relógio/fuso do Windows sem manter um polling por segundo.
+  const delay = Number.isFinite(nextDueAt)
+    ? Math.max(250, Math.min(60000, nextDueAt - now))
+    : 60000;
+  clockTimer = setTimeout(checkClockItems, delay);
 }
 
 function startClockService(){
   loadClockItems();
   checkClockItems();
-  clearInterval(clockTimer);
-  clockTimer = setInterval(checkClockItems, 1000);
 }
 
 function windowStatePath(){
@@ -196,7 +209,9 @@ function createFloatingWindow(){
       preload: path.join(SRC_DIR, "preload", "floating-preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      backgroundThrottling: true,
+      spellcheck: false
     }
   });
 
@@ -258,14 +273,16 @@ function createWindow(){
     minWidth: 980,
     minHeight: 620,
     backgroundColor: "#050101",
-    title: "MAIA",
+    title: "MAIA Horizon",
     icon: APP_ICON,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(SRC_DIR, "preload", "main-preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      backgroundThrottling: true,
+      spellcheck: false
     }
   });
   if(savedState.maximized) mainWindow.maximize();
@@ -324,7 +341,22 @@ function protectWindowNavigation(win){
   });
   win.webContents.on("render-process-gone", (_event, details) => {
     console.error("[maia:window] Renderizador reiniciado:", details && details.reason);
-    if(!win.isDestroyed()) setTimeout(() => { if(!win.isDestroyed()) win.reload(); }, 1200);
+    const now = Date.now();
+    win.__maiaRenderFailures = (win.__maiaRenderFailures || []).filter(time => now - time < 60000);
+    win.__maiaRenderFailures.push(now);
+    if(win.__maiaRenderFailures.length > 3){
+      console.error("[maia:window] Recuperação automática interrompida após falhas repetidas.");
+      if(Notification.isSupported()){
+        new Notification({
+          title:"Maia iniciou em modo de proteção",
+          body:"A interface falhou repetidamente. Reinicie a Maia para tentar novamente.",
+          icon:APP_ICON
+        }).show();
+      }
+      return;
+    }
+    const delay = Math.min(8000, 1000 * Math.pow(2, win.__maiaRenderFailures.length - 1));
+    if(!win.isDestroyed()) setTimeout(() => { if(!win.isDestroyed()) win.reload(); }, delay);
   });
   win.on("unresponsive", () => {
     if(win.__maiaRecoveryTimer) return;
@@ -386,10 +418,10 @@ app.whenReady().then(() => {
       const dueAt=Number(value && value.dueAt);
       if(!Number.isFinite(dueAt) || dueAt <= Date.now()) throw new Error("horário inválido");
       const item={id:"connect-"+Date.now()+"-"+Math.random().toString(16).slice(2),type:["alarm","timer","reminder"].includes(value.type)?value.type:"reminder",message:String(value.message||"Lembrete do Maia Connect").slice(0,240),label:String(value.message||"Lembrete").slice(0,120),dueAt,recurrence:null,createdAt:new Date().toISOString(),done:false};
-      clockItems.unshift(item);saveClockItems();return {ok:true,item};
+      clockItems.unshift(item);saveClockItems();scheduleClockCheck();return {ok:true,item};
     },
     removeClock(id){
-      const before=clockItems.length;clockItems=clockItems.filter(item=>item.id!==String(id));saveClockItems();return {ok:clockItems.length!==before};
+      const before=clockItems.length;clockItems=clockItems.filter(item=>item.id!==String(id));saveClockItems();scheduleClockCheck();return {ok:clockItems.length!==before};
     },
     runRoutine(name){
       if(mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("connect:run-routine", String(name||"").slice(0,80));
@@ -411,7 +443,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   app.isQuitting = true;
-  clearInterval(clockTimer);
+  clearTimeout(clockTimer);
   if(tray){ tray.destroy(); tray = null; }
   bridge.stopBridge();
 });
@@ -494,6 +526,7 @@ ipcMain.handle("clock:add", (event, value) => {
   clockItems = clockItems.filter(existing => existing.id !== item.id);
   clockItems.unshift(item);
   saveClockItems();
+  scheduleClockCheck();
   return {ok:true, item};
 });
 
@@ -502,6 +535,7 @@ ipcMain.handle("clock:remove", (event, id) => {
   const before = clockItems.length;
   clockItems = clockItems.filter(item => item.id !== String(id));
   saveClockItems();
+  scheduleClockCheck();
   return {ok:clockItems.length !== before};
 });
 

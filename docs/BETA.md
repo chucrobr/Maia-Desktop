@@ -11,7 +11,8 @@ A beta existe para testar estabilidade, instalação, compatibilidade com comput
 - Home Assistant exige endereço acessível e token de longa duração.
 - Trânsito ao vivo exige uma chave válida da Google Routes com faturamento configurado na conta Google.
 - Spotify pode exigir login e autorização próprios.
-- Desempenho visual varia conforme processador, memória e GPU.
+- A Horizon foi projetada para funcionar sem motor 3D; desempenho ainda pode variar conforme processador, memória, drivers e integrações ativas.
+- A voz feminina local disponível depende das vozes instaladas no Windows.
 - Acesso ao Maia Connect deve permanecer em rede local confiável.
 
 ## Dados e privacidade
@@ -27,10 +28,11 @@ A beta existe para testar estabilidade, instalação, compatibilidade com comput
 2. Atualizar a Central e o changelog.
 3. Executar `npm run check`.
 4. Executar `npm run test:connect`.
-5. Gerar o instalador com `npm run dist`.
-6. Instalar e abrir a versão gerada.
-7. Conferir se nenhum token ou arquivo pessoal entrou no pacote.
-8. Publicar notas de versão usando o modelo de release.
+5. Executar `npm run release:check`.
+6. Gerar o instalador com `npm run dist`.
+7. Instalar e abrir a versão gerada.
+8. Conferir se nenhum token ou arquivo pessoal entrou no pacote.
+9. Publicar notas de versão usando o modelo de release.
 
 ## Publicação no GitHub
 

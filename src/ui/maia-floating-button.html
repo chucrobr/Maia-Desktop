@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
-<title>Maia Floating — AMOLED</title>
+<title>MAIA Horizon — Botão flutuante</title>
 <style>
   :root{
     --cyan:#5be6ff;
@@ -74,7 +74,7 @@
     width:100%;
     height:100%;
     overflow:hidden;
-    background:transparent; /* overlay stays fully transparent — the AMOLED win comes from zero lit pixels around the button, not a black backdrop */
+    background:transparent;
     font-family:Consolas, "Segoe UI", monospace;
     -webkit-user-select:none;
     user-select:none;
@@ -242,7 +242,7 @@
     bottom:-23px;
     left:50%;
     transform:translateX(-50%);
-    font-size:8px;
+    font-size:9px;
     letter-spacing:2.5px;
     color:var(--cyan);
     opacity:1;
@@ -307,22 +307,117 @@
     body.float-combat .jf-core{ animation:none !important; }
   }
 </style>
+<style>
+  *,*::before,*::after{scroll-behavior:auto !important}
+  #maiaFloatBtn{
+    width:86px;
+    height:86px;
+    opacity:1;
+    transform:none;
+    perspective:none;
+    animation:horizonFloatEnter .5s cubic-bezier(.16,.84,.28,1) both;
+  }
+  #maiaFloatBtn .jf-stage{
+    display:grid;
+    place-items:center;
+    transform:none;
+    will-change:transform;
+    animation:horizonFloat 4.8s ease-in-out infinite;
+  }
+  .horizon-float{
+    position:relative;
+    width:70px;
+    height:70px;
+    display:grid;
+    place-items:center;
+    color:var(--cyan);
+    border:1px solid rgba(var(--float-rgb),.82);
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 38% 30%,rgba(var(--float-rgb),.24),transparent 32%),
+      radial-gradient(circle,rgba(var(--float-rgb),.11),rgba(4,1,10,.97) 67%),
+      #07030d;
+    box-shadow:
+      0 0 18px rgba(var(--float-rgb),.3),
+      0 0 5px rgba(var(--float-rgb),.35),
+      inset 0 0 19px rgba(var(--float-rgb),.12);
+    animation:horizonFloatGlow 3.6s ease-in-out infinite;
+  }
+  .horizon-float::before{
+    content:"";
+    position:absolute;
+    inset:6px;
+    border-radius:50%;
+    box-shadow:inset 0 0 12px rgba(var(--float-rgb),.1);
+    animation:horizonInnerPulse 2.8s ease-in-out infinite;
+  }
+  .horizon-float::after{
+    content:none;
+  }
+  .horizon-mark{
+    position:relative;
+    z-index:2;
+    font-family:"Segoe UI",sans-serif;
+    font-size:8px;
+    font-weight:800;
+    line-height:1;
+    letter-spacing:1.8px;
+    text-shadow:0 0 8px rgba(var(--float-rgb),.8);
+    animation:horizonMark 3.2s ease-in-out infinite;
+  }
+  .horizon-mark::after{
+    content:none;
+  }
+  .horizon-corner{
+    display:none;
+  }
+  .horizon-corner.tl{left:8px;top:31px;border-left:1px solid}
+  .horizon-corner.br{right:8px;bottom:30px;border-right:1px solid}
+  .jf-label{
+    bottom:-14px;
+    font-size:8px;
+    font-weight:700;
+    letter-spacing:2.6px;
+    text-shadow:0 0 6px rgba(var(--float-rgb),.6);
+  }
+  @keyframes horizonFloatEnter{from{opacity:0;transform:scale(.62)}to{opacity:1;transform:none}}
+  @keyframes horizonFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.025)}}
+  @keyframes horizonFloatGlow{0%,100%{opacity:.88}50%{opacity:1}}
+  @keyframes horizonInnerPulse{0%,100%{transform:scale(.94);opacity:.45}50%{transform:scale(1);opacity:.9}}
+  @keyframes horizonMark{0%,100%{opacity:.78}50%{opacity:1}}
+  body[data-theme="quantum"] .horizon-float,body[data-theme="lasergrid"] .horizon-float{animation:horizonFloatGlow 1.8s ease-in-out infinite}
+  body[data-theme="eclipse"] .horizon-float,body[data-theme="eventhorizon"] .horizon-float,body[data-theme="blackhole"] .horizon-float{animation:horizonFloatGlow 5s ease-in-out infinite}
+  body[data-theme="pinkaurora"] .horizon-mark,body[data-theme="chroma"] .horizon-mark{animation:horizonMark 1.9s ease-in-out infinite}
+  body[data-theme="pulsar"] .jf-stage,body[data-theme="supernova"] .jf-stage{animation:horizonFloat 2.2s ease-in-out infinite}
+  @media(prefers-reduced-motion:reduce){
+    #maiaFloatBtn,#maiaFloatBtn .jf-stage,.horizon-float,.horizon-float::before,.horizon-mark{animation:none!important}
+  }
+  body.performance-economy #maiaFloatBtn .jf-stage,
+  body.performance-economy .horizon-float,
+  body.performance-economy .horizon-float::before,
+  body.performance-economy .horizon-mark{animation:none!important}
+</style>
 </head>
 <body>
-<canvas id="floatingParticles" aria-hidden="true"></canvas>
 <button id="maiaFloatBtn" title="Abrir Maia" aria-label="Abrir Maia">
   <div class="jf-stage">
-    <div class="jf-halo"></div>
-    <div class="jf-core"></div>
-    <div class="jf-spec"></div>
-    <div class="jf-flash"></div>
+    <div class="horizon-float">
+      <span class="horizon-corner tl"></span>
+      <span class="horizon-mark">MAIA</span>
+      <span class="horizon-corner br"></span>
+    </div>
   </div>
-  <div class="jf-label">MAIA</div>
 </button>
-<script src="../../node_modules/three/build/three.min.js"></script>
 <script>
 (function(){
   "use strict";
+  const syncPerformanceProfile = () => {
+    document.body.classList.toggle("performance-economy", localStorage.getItem("Maia.performanceMode") === "economy");
+  };
+  syncPerformanceProfile();
+  addEventListener("storage", (event) => {
+    if(event.key === "Maia.performanceMode") syncPerformanceProfile();
+  });
   window.floatingLastActivity = performance.now();
   ['copy', 'cut', 'contextmenu', 'dragstart', 'selectstart'].forEach((eventName) => {
     document.addEventListener(eventName, (event) => event.preventDefault(), {capture:true});
@@ -443,7 +538,8 @@
 
 (function(){
   "use strict";
-  if(!window.THREE) return;
+  // Renderizador de partículas desativado permanentemente na Horizon.
+  return;
   const canvas = document.getElementById("floatingParticles");
   const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:false, powerPreference:"low-power"});
   renderer.setClearColor(0x000000, 0);
@@ -517,6 +613,7 @@
   let lastColorShift = 0;
   let colorHueOffset = 0;
   const dynamicColor = new THREE.Color();
+  let renderPaused = document.hidden;
 
   function resize(){
     const width = innerWidth || 150;
@@ -574,7 +671,7 @@
     captureAnalyser=null;captureData=null;capturePending=false;
   }
   function animate(now){
-    requestAnimationFrame(animate);
+    if(!renderPaused) requestAnimationFrame(animate);
     const idle = now - Number(window.floatingLastActivity || 0) > 20000 && energy < .08;
     document.body.classList.toggle("float-idle", idle);
     if(document.hidden || now - last < 1000/(idle ? 8 : 30)) return;
@@ -632,7 +729,16 @@
     requestAnimationFrame(() => { resizeQueued = false; resize(); });
   }, {passive:true});
   addEventListener("pointerdown",startOutputCapture,{once:true,passive:true});
-  document.addEventListener("visibilitychange",()=>{ if(document.hidden) stopOutputCapture(); else startOutputCapture(); });
+  document.addEventListener("visibilitychange",()=>{
+    renderPaused=document.hidden;
+    if(renderPaused){
+      stopOutputCapture();
+    }else{
+      last=0;
+      startOutputCapture();
+      requestAnimationFrame(animate);
+    }
+  });
   renderer.domElement.addEventListener("webglcontextlost",(event)=>{event.preventDefault();stopOutputCapture();setTimeout(()=>location.reload(),1200)},{once:true});
   resize();
   setTimeout(()=>{if(!document.hidden)startOutputCapture()},300);

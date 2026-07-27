@@ -2,7 +2,7 @@
   {
     "id": "windows-core",
     "name": "Windows",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "category": "Sistema",
     "summary": "Controle de aplicativos, janelas, volume e recursos essenciais do Windows.",
     "badge": "updated",
@@ -41,7 +41,7 @@
   {
     "id": "voice",
     "name": "Voz",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "category": "Comunicação",
     "summary": "Reconhecimento de fala, ativação e respostas por voz da Maia.",
     "badge": "updated",
@@ -49,7 +49,7 @@
     "intentPrefixes": ["speech."],
     "commands": ["teste de voz", "modo silencioso", "parar fala", "ativar voz online"],
     "permissions": ["Usar microfone quando ativado", "Converter fala em comandos", "Reproduzir respostas de voz"],
-    "changes": ["Controles de voz ganharam uma descrição centralizada."]
+    "changes": ["Controles de voz ganharam uma descrição centralizada.", "Voz feminina selecionada e velocidade configurada agora controlam a fala real.", "Tom original preservado para evitar efeito artificial."]
   },
   {
     "id": "productivity",
@@ -119,20 +119,20 @@
   {
     "id": "themes",
     "name": "Temas e Efeitos",
-    "version": "2.4.0",
+    "version": "2.5.0",
     "category": "Personalização",
-    "summary": "61 temas sincronizados e perfis separados para desempenho e GPU antiga.",
+    "summary": "61 temas sincronizados com a Horizon e modos leves Normal e Economia.",
     "badge": "new",
     "functional": true,
     "intentPrefixes": ["visual."],
-    "commands": ["abrir temas", "prévia do tema", "modo padrão", "tema automático", "modo desempenho", "modo desempenho máximo"],
-    "permissions": ["Salvar o tema escolhido localmente", "Alterar cores e efeitos das duas interfaces", "Ajustar a qualidade visual"],
-    "changes": ["Todos os 61 temas sincronizados com o núcleo flutuante.", "38 novas paletas aplicadas às partículas, halo e núcleo.", "10 novos efeitos exclusivos adaptados ao flutuante."]
+    "commands": ["abrir temas", "prévia do tema", "modo padrão", "tema automático", "modo normal", "modo economia"],
+    "permissions": ["Salvar o tema escolhido localmente", "Alterar as cores da Horizon e do botão flutuante", "Alternar os modos Normal e Economia"],
+    "changes": ["Todos os 61 temas sincronizados com a Horizon e o botão flutuante.", "Motor 3D removido da interface principal.", "Paletas exclusivas usam efeitos leves em CSS."]
   },
   {
     "id": "maia-connect",
     "name": "Maia Connect",
-    "version": "2.3.0",
+    "version": "2.4.0",
     "category": "Conectividade",
     "summary": "Web app móvel em escala 1× no iPhone, texto como padrão e voz protegida no Android.",
     "badge": "updated",
@@ -140,7 +140,7 @@
     "intentPrefixes": ["connect."],
     "commands": ["ativar Maia Connect", "status do Maia Connect", "renovar código de pareamento", "desativar Maia Connect"],
     "permissions": ["Abrir uma porta somente quando ativado", "Receber comandos de celulares pareados", "Controlar mídia, rotinas, temas e sistema com confirmações", "Transferir arquivos dentro dos limites informados"],
-    "changes": ["Detecção automática de iPhone 7 e telas compactas equivalentes.", "Escala 0,50× aplicada e travada.", "Zoom de campos, gestos e toque duplo bloqueado.", "Ajuste automático quando o teclado virtual abre."]
+    "changes": ["Escala natural 1× no iPhone 7 e telas compactas equivalentes.", "Zoom acidental de campos, gestos e toque duplo bloqueado.", "Texto como padrão no iPhone e voz exibida somente em Android compatível.", "Ajuste automático quando o teclado virtual abre."]
   },
   {
     "id": "home-assistant",
@@ -167,5 +167,18 @@
     "commands": ["previsão para a semana", "vai chover hoje", "como está o trânsito para o trabalho", "rota para o centro"],
     "permissions": ["Consultar Open-Meteo para clima e geocodificação", "Consultar Google Routes somente com chave fornecida pelo usuário", "Salvar cidade e origem padrão localmente"],
     "changes": ["Clima completo sem chave.", "Trânsito considera condições ao vivo.", "Chaves pessoais não são distribuídas."]
+  },
+  {
+    "id": "theme-cursor",
+    "name": "Cursor Temático",
+    "version": "1.0.0",
+    "category": "Personalização",
+    "summary": "Cursor exclusivo que acompanha automaticamente as cores de cada tema da Horizon.",
+    "badge": "new",
+    "functional": true,
+    "intentPrefixes": [],
+    "commands": [],
+    "permissions": ["Alterar apenas o cursor dentro da interface Maia", "Ler a paleta do tema ativo"],
+    "changes": ["Cursor vetorial leve com cor principal e destaque do tema.", "Ativação e desativação instantâneas pela Central de Extensões."]
   }
 ]

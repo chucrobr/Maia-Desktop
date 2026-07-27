@@ -1,6 +1,6 @@
 # Maia Desktop
 
-Maia é uma assistente pessoal para Windows criada por **clchucro**. O projeto reúne comandos de voz e texto, automações locais, controle de mídia, integração com serviços e acesso pelo celular.
+Maia é uma assistente pessoal para Windows criada por **clchucro**. A interface Horizon reúne comandos de voz e texto, automações locais, controle de mídia, integrações e acesso pelo celular em uma experiência única e leve.
 
 > Esta versão é beta. Alguns recursos dependem do Windows, da rede local ou de serviços externos e podem exigir configuração manual.
 
@@ -10,13 +10,14 @@ Maia é uma assistente pessoal para Windows criada por **clchucro**. O projeto r
 - abertura de programas e controles do Windows;
 - Spotify, YouTube e serviços de streaming;
 - alarmes, lembretes, rotinas e memória local;
-- 61 temas sincronizados com o núcleo flutuante;
+- interface Horizon principal e única;
+- 61 temas sincronizados com o botão flutuante;
 - Maia Connect para controle pelo celular na mesma rede;
 - Home Assistant por token de acesso de longa duração;
 - clima de sete dias pela Open-Meteo;
 - rotas com trânsito pela Google Routes;
 - notificações de vendas por integração Arkama/Netlify;
-- perfis visuais para desempenho e GPUs antigas.
+- modos Normal e Economia, sem motor 3D na interface principal.
 
 ## Requisitos
 

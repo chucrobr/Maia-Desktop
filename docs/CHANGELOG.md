@@ -1,5 +1,40 @@
 # Novidades da Maia
 
+## 5.3.0-beta.5 — Horizon final
+
+- Migração concluída para a Horizon como interface principal e única.
+- Identidade “Núcleo Online” removida das janelas e páginas.
+- Preferências locais inválidas deixam de impedir a inicialização e são recuperadas com valores seguros.
+- Palavras de ativação personalizadas passam a ser preservadas entre reinicializações.
+- Seleção e velocidade de voz da Central agora controlam a fala real da Maia.
+- Dependência Three.js removida do pacote; a Horizon não carrega motor 3D.
+- Versão, novidades, Central e documentação da beta sincronizadas.
+
+## 5.3.0-beta.4 — Horizon
+
+- Horizon promovida a interface principal e única da Maia.
+- Motor 3D clássico desativado para reduzir o uso de GPU em computadores antigos.
+- Comandos, perguntas, telemetria e dispositivos de rede conectados ao motor real da Maia.
+- Central reorganizada na Horizon com desempenho, integrações, Connect, automações, dados, segurança e extensões.
+- Interface demonstrativa externa removida e substituída por comunicação local protegida.
+
+## 5.3.0-beta.3 — Interface modular
+
+- Interface principal dividida em HTML, CSS, renderização visual e lógica do aplicativo.
+- Estrutura visual e comportamento preservados sem alteração das integrações existentes.
+- Verificador do projeto atualizado para validar todos os módulos da interface.
+- Inicialização real, Maia Connect e revisão de publicação testados após a separação.
+
+## 5.3.0-beta.2 — Estabilidade e desempenho
+
+- Renderização principal limitada a 60 FPS nos perfis Desempenho e GPU antiga.
+- Redução automática para 30 FPS quando a interface fica realmente ociosa, voltando imediatamente após atividade.
+- Botão flutuante pausa a animação e a captura de áudio quando está oculto.
+- Relógios e lembretes usam agendamento adaptativo em vez de consulta a cada segundo.
+- Recuperação do renderizador recebeu proteção contra ciclos de falha e recarga.
+- Consulta de vendas Arkama/Netlify continua ativa quando configurada e deixa de criar temporizador sem configuração.
+- Inicialização, Maia Connect e verificações de publicação testadas antes da geração do instalador.
+
 ## 5.3.0-beta.1 — Preparação da beta pública
 
 - Autoria do projeto atualizada para clchucro no aplicativo, instalador e documentação.

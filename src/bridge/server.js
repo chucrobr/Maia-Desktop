@@ -34,6 +34,8 @@ let speechProcess = null;
 let speechReady = false;
 let speechBuffer = "";
 const speechQueue = [];
+let lastSpeechText = "";
+let lastSpeechAt = 0;
 let spotifyAuthServer = null;
 let spotifyAuthSession = null;
 let speechHelperPid = null;
@@ -148,7 +150,10 @@ async function telemetrySnapshot(){
 $battery = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
 $disk = [System.IO.DriveInfo]::new('C')
 $net = Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Measure-Object -Property ReceivedBytes -Sum
-$gpu = Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Video\\*\\0000' -ErrorAction SilentlyContinue | Where-Object { $_.DriverDesc } | Select-Object -First 1
+$gpuNames = @(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.Name } | Select-Object -ExpandProperty Name -Unique)
+if(-not $gpuNames.Count){
+  $gpuNames = @(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Video\\*\\0000' -ErrorAction SilentlyContinue | Where-Object { $_.DriverDesc } | Select-Object -ExpandProperty DriverDesc -Unique)
+}
 $batteryPercent = $null
 $batteryCharging = $null
 $diskPercent = $null
@@ -169,7 +174,7 @@ $data = [ordered]@{
   disk_percent = $diskPercent
   disk_total_gb = $(if($disk -and $disk.TotalSize){ [math]::Round($disk.TotalSize / 1GB, 1) }else{ $null })
   disk_free_gb = $(if($disk){ [math]::Round($disk.AvailableFreeSpace / 1GB, 1) }else{ $null })
-  gpu_name = $(if($gpu){ [string]$gpu.DriverDesc }else{ $null })
+  gpu_name = $(if($gpuNames.Count){ [string]($gpuNames -join ' + ') }else{ $null })
   net_recv_mb = $netRecvMb
 }
 $data | ConvertTo-Json -Compress
@@ -605,13 +610,16 @@ function speechHelperHtml(){
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Maia Voz Online</title>
   <style>
-    body{margin:0;background:#03070d;color:#dff8ff;font-family:Segoe UI,Arial,sans-serif;display:grid;place-items:center;min-height:100vh}
-    main{width:min(560px,92vw);border:1px solid rgba(95,220,255,.32);background:linear-gradient(180deg,rgba(18,42,58,.92),rgba(6,12,20,.95));border-radius:14px;padding:26px;box-shadow:0 0 42px rgba(60,200,255,.18)}
-    h1{margin:0 0 12px;font-size:24px;letter-spacing:3px}
-    .status{color:#ffcb7a;margin:14px 0;font-weight:600}
-    .heard{min-height:72px;border:1px solid rgba(95,220,255,.2);border-radius:10px;padding:14px;background:rgba(0,0,0,.22)}
-    button{border:0;border-radius:999px;padding:13px 20px;background:#5fe0ff;color:#031018;font-weight:800;cursor:pointer}
-    small{display:block;margin-top:16px;color:#8fb8c7}
+    :root{--purple:#a78bfa;--purple-strong:#7c3aed;--ink:#05020a}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(circle at 50% 35%,#1a0d31 0,#08030f 48%,#020104 100%);color:#eee7ff;font-family:Segoe UI,Arial,sans-serif;display:grid;place-items:center;min-height:100vh;overflow:hidden}
+    main{position:relative;width:min(560px,92vw);border:1px solid rgba(167,139,250,.34);background:linear-gradient(180deg,rgba(23,12,42,.94),rgba(6,3,12,.97));border-radius:18px;padding:30px;box-shadow:0 0 55px rgba(124,58,237,.2);backdrop-filter:blur(14px)}
+    h1{margin:0 0 12px;font-size:24px;letter-spacing:4px;color:var(--purple);text-shadow:0 0 18px rgba(167,139,250,.5)}
+    .status{color:#c9b5ff;margin:16px 0;font-weight:600}
+    .heard{min-height:72px;border:1px solid rgba(167,139,250,.23);border-radius:12px;padding:14px;background:rgba(0,0,0,.28);box-shadow:inset 0 0 20px rgba(124,58,237,.05)}
+    button{border:1px solid rgba(196,181,253,.5);border-radius:999px;padding:13px 22px;background:linear-gradient(135deg,var(--purple),var(--purple-strong));color:#0a0312;font-weight:800;cursor:pointer;box-shadow:0 0 20px rgba(124,58,237,.3)}
+    button:hover{filter:brightness(1.12);transform:translateY(-1px)}
+    small{display:block;margin-top:18px;color:#8f80ab}
   </style>
 </head>
 <body>
@@ -864,6 +872,14 @@ function ensureSpeechWorker(){
 Add-Type -AssemblyName System.Speech
 $voice = New-Object System.Speech.Synthesis.SpeechSynthesizer
 $voice.Volume = 100
+$femaleVoice = $voice.GetInstalledVoices() |
+  Where-Object {
+    $_.Enabled -and
+    ($_.VoiceInfo.Name -match 'Maria|Francisca' -or
+      ($_.VoiceInfo.Culture.Name -eq 'pt-BR' -and $_.VoiceInfo.Gender -eq 'Female'))
+  } |
+  Select-Object -First 1
+if ($femaleVoice) { $voice.SelectVoice($femaleVoice.VoiceInfo.Name) }
 [Console]::WriteLine('READY')
 while (($line = [Console]::ReadLine()) -ne $null) {
   try {
@@ -900,6 +916,12 @@ $voice.Dispose()
 function speakWindowsFast(text, voiceEngine){
   const clean = String(text || "").replace(/\s+/g, " ").trim().slice(0, 5000);
   if(!clean) return Promise.resolve({spoken:false});
+  const now = Date.now();
+  if(clean === lastSpeechText && now - lastSpeechAt < 4000){
+    return Promise.resolve({spoken:false, duplicate:true});
+  }
+  lastSpeechText = clean;
+  lastSpeechAt = now;
   const worker = ensureSpeechWorker();
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("voz excedeu o tempo limite")), Math.max(12000, clean.length * 100));
@@ -1164,6 +1186,7 @@ function configureNetlifySales(baseUrl, deviceToken){
   const config = {baseUrl:url.origin, deviceToken:token, updatedAt:new Date().toISOString()};
   ensureMaiaDataDir();
   fs.writeFileSync(netlifySalesConfigPath(), JSON.stringify(config, null, 2), "utf8");
+  startNetlifySalesPolling();
   return {configured:true, baseUrl:config.baseUrl, updatedAt:config.updatedAt};
 }
 
@@ -1218,6 +1241,7 @@ async function pollNetlifySales(){
 
 function startNetlifySalesPolling(){
   if(netlifySalesTimer) return;
+  if(!readNetlifySalesConfig()) return;
   pollNetlifySales();
   netlifySalesTimer = setInterval(pollNetlifySales, 15000);
 }
@@ -2350,19 +2374,36 @@ function fileSearchScript(query){
   const safe = String(query || "").replace(/'/g, "''");
   return `
 $roots = @("$env:USERPROFILE\\Desktop", "$env:USERPROFILE\\Documents", "$env:USERPROFILE\\Downloads")
-$found = $null
+$found = @()
 foreach($root in $roots){
   if(Test-Path $root){
-    $found = Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*${safe}*" } | Select-Object -First 1
-    if($found){ break }
+    $found += Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -like "*${safe}*" } |
+      Select-Object -First 20 FullName,Name,Length,LastWriteTime,Extension
   }
 }
-if($found){
-  Start-Process explorer.exe "/select,\`"$($found.FullName)\`""
-  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-  Write-Output $found.FullName
-}
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+@($found | Sort-Object LastWriteTime -Descending | Select-Object -First 30) | ConvertTo-Json -Compress
 `;
+}
+
+function safeUserFile(value){
+  const resolved = path.resolve(String(value || ""));
+  const roots = ["Desktop","Documents","Downloads"].map((name) => path.resolve(os.homedir(), name) + path.sep);
+  if(!roots.some((root) => resolved.startsWith(root)) || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) throw new Error("arquivo fora das pastas permitidas");
+  return resolved;
+}
+
+async function systemProcesses(){
+  const result = await ps(`
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Get-Process -ErrorAction SilentlyContinue |
+  Sort-Object WorkingSet64 -Descending |
+  Select-Object -First 16 @{N='name';E={$_.ProcessName}},@{N='pid';E={$_.Id}},@{N='memoryMb';E={[math]::Round($_.WorkingSet64/1MB,1)}},@{N='cpuSeconds';E={[math]::Round([double]$_.CPU,1)}} |
+  ConvertTo-Json -Compress
+`);
+  const parsed = JSON.parse(String(result.stdout || "[]"));
+  return Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
 }
 
 async function networkStatus(){
@@ -2422,7 +2463,12 @@ async function networkDevices(){
   const cacheAge = networkScanCache ? Date.now() - networkScanCache.savedAt : Infinity;
   if(cacheAge < 60000) return networkScanCache.result;
   if(networkScanPromise) return networkScanPromise;
-  networkScanPromise = scanNetwork({runProcess})
+  const knownNames = {};
+  for(const device of connectDevices.values()){
+    const address = String(device.remoteAddress || "").replace(/^::ffff:/i, "");
+    if(/^\d{1,3}(?:\.\d{1,3}){3}$/.test(address) && device.name) knownNames[address] = device.name;
+  }
+  networkScanPromise = scanNetwork({runProcess, knownNames})
     .then((result) => {
       networkScanCache = {savedAt: Date.now(), result};
       return result;
@@ -2573,7 +2619,10 @@ async function runAction(action, payload){
     case "speech.openHelper":
       return openSpeechHelper();
     case "speech.speak":
-      return speakWindowsFast(payload && payload.text, payload && payload.voice);
+      // A saída de voz é exclusiva da interface (voz feminina Web Speech).
+      // O sintetizador nativo do Windows permanece bloqueado para evitar
+      // uma segunda voz ao abrir o assistente de reconhecimento do Edge.
+      return {spoken:false, disabled:true, reason:"female-web-speech-only"};
     case "spotify.authStatus":
       return spotifyAuthStatus();
     case "spotify.login":
@@ -2636,8 +2685,21 @@ async function runAction(action, payload){
       return ps(windowOrganizeScript());
     case "file.search": {
       const result = await ps(fileSearchScript(payload && payload.query));
-      return {file: String(result && result.stdout || "").trim()};
+      const parsed = JSON.parse(String(result && result.stdout || "[]"));
+      return {items:Array.isArray(parsed)?parsed:parsed?[parsed]:[]};
     }
+    case "file.open": {
+      const target=safeUserFile(payload&&payload.path);
+      const child=spawn("explorer.exe",[target],{detached:true,stdio:"ignore",windowsHide:true});child.unref();
+      return {opened:true,path:target};
+    }
+    case "file.openFolder": {
+      const target=safeUserFile(payload&&payload.path);
+      const child=spawn("explorer.exe",["/select,",target],{detached:true,stdio:"ignore",windowsHide:true});child.unref();
+      return {opened:true,path:target};
+    }
+    case "system.processes":
+      return {items:await systemProcesses()};
     case "youtube.play":
       return youtubePlay(payload && payload.query);
     case "youtube.search":
@@ -2797,6 +2859,9 @@ const server = http.createServer(async (req, res) => {
         "news.today",
         "window.organize",
         "file.search",
+        "file.open",
+        "file.openFolder",
+        "system.processes",
         "youtube.play",
         "youtube.search",
         "youtube.open",
@@ -2933,7 +2998,6 @@ function startBridge(){
       .then(() => console.log("[maia:brain] Inicializado"))
       .catch((err) => console.warn("[maia:brain] Falha na inicialização:", err.message));
     startNetlifySalesPolling();
-    ensureSpeechWorker();
   });
   return server;
 }

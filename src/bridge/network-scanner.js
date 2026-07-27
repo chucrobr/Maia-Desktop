@@ -54,13 +54,31 @@ function sameIpv4Block(address, localAddress){
   return value.length === 4 && local.length === 4 && value.slice(0, 3).join(".") === local.slice(0, 3).join(".");
 }
 
+function parseResolvedHostname(output){
+  const text = String(output || "");
+  const dnsNames = [...text.matchAll(/^\s*(?:Name|Nome)\s*:\s*([^\s.][^\s]*)\s*$/gim)]
+    .map((match) => match[1].replace(/\.$/, ""));
+  const dnsName = dnsNames.at(-1);
+  if(dnsName && !/^(?:localhost|unknown)$/i.test(dnsName)) return dnsName;
+  const netbios = text.match(/^\s*([^\s<]{1,32})\s+<00>\s+(?:UNIQUE|ÚNICO)\s+/im);
+  return netbios ? netbios[1].trim() : "";
+}
+
+function cleanFriendlyName(value){
+  return String(value || "")
+    .replace(/^::ffff:/i, "")
+    .replace(/\.local$/i, "")
+    .trim()
+    .slice(0, 64);
+}
+
 async function runInBatches(items, size, worker){
   for(let index = 0; index < items.length; index += size){
     await Promise.allSettled(items.slice(index, index + size).map(worker));
   }
 }
 
-async function scanNetwork({runProcess, networkInterfaces = os.networkInterfaces(), hostname = os.hostname()} = {}){
+async function scanNetwork({runProcess, networkInterfaces = os.networkInterfaces(), hostname = os.hostname(), knownNames = {}} = {}){
   if(typeof runProcess !== "function") throw new Error("runProcess e obrigatorio");
 
   let route = {gateway: null, localAddress: null};
@@ -108,6 +126,30 @@ async function scanNetwork({runProcess, networkInterfaces = os.networkInterfaces
     });
   }
 
+  // Resolve nomes depois da descoberta para não atrasar o preenchimento da ARP.
+  // Maia Connect tem prioridade; depois vêm DNS reverso e NetBIOS do Windows.
+  const resolvable = [...byAddress.values()].filter((device) => !device.isLocal && !device.isGateway);
+  await runInBatches(resolvable, 12, async (device) => {
+    const pairedName = cleanFriendlyName(knownNames[device.address]);
+    if(pairedName){
+      device.name = pairedName;
+      device.nameSource = "maia-connect";
+      return;
+    }
+    const lookups = await Promise.allSettled([
+      runProcess("nslookup.exe", [device.address], {timeoutMs: 1400}),
+      runProcess("nbtstat.exe", ["-A", device.address], {timeoutMs: 1400})
+    ]);
+    for(const lookup of lookups){
+      if(lookup.status !== "fulfilled") continue;
+      const resolved = cleanFriendlyName(parseResolvedHostname(lookup.value.stdout));
+      if(!resolved || resolved === device.address) continue;
+      device.name = resolved;
+      device.nameSource = lookup.value.stdout.match(/<00>/i) ? "netbios" : "dns";
+      break;
+    }
+  });
+
   const devices = [...byAddress.values()].sort((a, b) => {
     if(a.isLocal !== b.isLocal) return a.isLocal ? -1 : 1;
     if(a.isGateway !== b.isGateway) return a.isGateway ? -1 : 1;
@@ -121,4 +163,4 @@ async function scanNetwork({runProcess, networkInterfaces = os.networkInterfaces
   };
 }
 
-module.exports = {isPrivateIpv4, selectInterface, parseDefaultRoute, parseArpTable, sameIpv4Block, scanNetwork};
+module.exports = {isPrivateIpv4, selectInterface, parseDefaultRoute, parseArpTable, parseResolvedHostname, sameIpv4Block, scanNetwork};

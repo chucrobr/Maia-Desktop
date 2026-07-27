@@ -1,6 +1,6 @@
 {
   "name": "maia-desktop",
-  "version": "5.3.0-beta.1",
+  "version": "5.3.0-beta.5",
   "description": "Assistente pessoal para Windows com automações, integrações e controle pelo celular.",
   "author": {
     "name": "clchucro",
@@ -20,8 +20,7 @@
     "dist:portable": "electron-builder --win portable"
   },
   "dependencies": {
-    "qrcode": "^1.5.4",
-    "three": "^0.160.0"
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "electron": "^43.2.0",
