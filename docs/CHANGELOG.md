@@ -1,5 +1,11 @@
 # Novidades da Maia
 
+## 5.3.0-beta.8 — Capa corrigida
+
+- Placeholder musical agora desaparece obrigatoriamente quando a capa real do Spotify é carregada.
+- Central Multimídia exibe somente uma capa por reprodução.
+- Tela inicial ganhou botões elegantes para limpar e ocultar o chat, com preferência persistente.
+
 ## 5.3.0-beta.7 — Central Multimídia corrigida
 
 - Cartão antigo “Todos os sistemas operacionais” removido definitivamente.

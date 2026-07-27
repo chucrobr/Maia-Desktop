@@ -2,7 +2,7 @@
   "use strict";
   const parentWindow = window.parent;
   const $ = (id) => document.getElementById(id);
-  const state = {view:"inicio", pending:false, pendingTimer:null, stats:{cpu:0,ram:0,gpu:0,energia:100}, extensions:[], selectedExtension:"", theme:null, media:null, connect:null};
+  const state = {view:"inicio", pending:false, pendingTimer:null, stats:{cpu:0,ram:0,gpu:0,energia:100}, extensions:[], selectedExtension:"", theme:null, media:null, connect:null, chatHidden:localStorage.getItem("Maia.horizon.chatHidden")==="1"};
   const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
   const pad = (value) => String(value).padStart(2, "0");
   const days = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
@@ -27,6 +27,7 @@
     if(name === "sistema") parentWindow.postMessage({type:"maia-interface-action", action:"system.refresh"}, "*");
   }
   function bubble(role, text){
+    if(state.chatHidden)return;
     const hint = $("chatEmptyHint");
     if(hint) hint.remove();
     const item = document.createElement("div");
@@ -43,6 +44,13 @@
     item.appendChild(content);
     $("chatLog").appendChild(item);
     $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  }
+  function syncChatVisibility20(){
+    const view=$("view-inicio"),button=$("chatVisibility20");
+    view.classList.toggle("chat-hidden20",state.chatHidden);
+    button.classList.toggle("active",state.chatHidden);
+    button.querySelector("span").textContent=state.chatHidden?"MOSTRAR CHAT":"OCULTAR CHAT";
+    button.setAttribute("aria-pressed",String(state.chatHidden));
   }
   function terminal(text, command=false){
     const line = document.createElement("div");
@@ -299,6 +307,17 @@
   $("sendBtn").addEventListener("click", send);
   $("chatInput").addEventListener("keydown", (event) => { if(event.key === "Enter"){ event.preventDefault(); send(); } });
   $("sparkleBtn").addEventListener("click", () => { $("chatInput").value = "Qual é o status do sistema?"; $("chatInput").focus(); });
+  $("chatClear20").addEventListener("click",()=>{
+    $("chatLog").replaceChildren();
+    $("chatClear20").animate([{transform:"scale(.92)"},{transform:"scale(1)"}],{duration:180,easing:"ease-out"});
+  });
+  $("chatVisibility20").addEventListener("click",()=>{
+    state.chatHidden=!state.chatHidden;
+    localStorage.setItem("Maia.horizon.chatHidden",state.chatHidden?"1":"0");
+    if(state.chatHidden)$("chatLog").replaceChildren();
+    syncChatVisibility20();
+  });
+  syncChatVisibility20();
   $("fileSearchForm20").addEventListener("submit",(event)=>{event.preventDefault();const query=$("fileSearchInput20").value.trim();if(!query)return;$("fileStatus20").textContent="Buscando arquivos…";parentWindow.postMessage({type:"maia-interface-action",action:"file.search",query},"*");});
   $("downloadsRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-action",action:"downloads.list"},"*"));
   $("systemRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-action",action:"system.refresh"},"*"));
