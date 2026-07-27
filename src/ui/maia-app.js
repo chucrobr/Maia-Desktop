@@ -171,6 +171,8 @@
         brainPresence.value = state.preferences.presenceLevel || "vivid";
         brainVolume.value = state.preferences.preferredVolume == null ? 50 : state.preferences.preferredVolume;
         brainWakeWords.value = getWakeWords().join(", ");
+        document.getElementById("brainHistoryPreference").value=state.preferences.commandHistoryEnabled===false?"off":"on";
+        document.getElementById("brainDiagnosticsPreference").value=state.preferences.diagnosticsEnabled===false?"off":"on";
         brainTheme.value = state.preferences.theme || "classic";
         brainQuality.value = localStorage.getItem("Maia.visualQuality") || "auto";
         brainIntensity.value = Math.round(Number(localStorage.getItem("Maia.visualIntensity") || 1) * 100);
@@ -218,6 +220,13 @@
         brainWakeWords.value = state.preferences.wakeWords.join(", ");
         saveMemory();
         speak(setup === "wake-reset" ? "Palavras de ativação restauradas." : "Palavras de ativação atualizadas.");
+        return;
+      }
+      if(setup==="data-preferences"){
+        state.preferences.commandHistoryEnabled=document.getElementById("brainHistoryPreference").value!=="off";
+        state.preferences.diagnosticsEnabled=document.getElementById("brainDiagnosticsPreference").value!=="off";
+        saveMemory();
+        brainOutput.textContent="Preferências locais de dados atualizadas.";
         return;
       }
       if(command) processCommand(command);
@@ -285,6 +294,9 @@
   state.reminders = Array.isArray(state.reminders) ? state.reminders : [];
   state.commandHistory = Array.isArray(state.commandHistory) ? state.commandHistory : [];
   state.errorLog = Array.isArray(state.errorLog) ? state.errorLog : [];
+  const backgroundAbortSources20=new Set(["media.current","network.devices","integration.status"]);
+  state.errorLog=state.errorLog.filter(item=>!(backgroundAbortSources20.has(String(item&&item.source||""))&&/abort|cancelad/i.test(String(item&&item.message||""))));
+  localStorage.setItem("Maia.voice.errors",JSON.stringify(state.errorLog));
   state.preferences = state.preferences && typeof state.preferences === "object" && !Array.isArray(state.preferences) ? state.preferences : {};
   state.learnedMemory = state.learnedMemory && typeof state.learnedMemory === "object" && !Array.isArray(state.learnedMemory) ? state.learnedMemory : {};
   state.routines = state.routines && typeof state.routines === "object" && !Array.isArray(state.routines) ? state.routines : {};
@@ -311,6 +323,22 @@
   state.preferences.systemAlerts = Array.isArray(state.preferences.systemAlerts) ? state.preferences.systemAlerts : [];
   state.preferences.micSensitivity = Math.max(10, Math.min(100, Number(state.preferences.micSensitivity || 55)));
   state.preferences.privacyMode = Boolean(state.preferences.privacyMode);
+  state.preferences.commandHistoryEnabled = state.preferences.commandHistoryEnabled !== false;
+  state.preferences.diagnosticsEnabled = state.preferences.diagnosticsEnabled !== false;
+  const defaultModeProfiles20={
+    work:{programs:["chrome","vs code"],volume:50,brightness:null,duration:null},
+    game:{programs:["spotify"],volume:75,brightness:null,duration:null},
+    night:{programs:[],volume:25,brightness:30,duration:null},
+    cinema:{programs:["prime video"],volume:55,brightness:null,duration:null},
+    meeting:{programs:[],volume:35,brightness:null,duration:null},
+    study:{programs:[],volume:35,brightness:null,duration:50}
+  };
+  state.preferences.modeProfiles=state.preferences.modeProfiles&&typeof state.preferences.modeProfiles==="object"?state.preferences.modeProfiles:{};
+  Object.entries(defaultModeProfiles20).forEach(([name,defaults])=>{
+    const saved=state.preferences.modeProfiles[name];
+    state.preferences.modeProfiles[name]={...defaults,...(saved&&typeof saved==="object"?saved:{})};
+    state.preferences.modeProfiles[name].programs=Array.isArray(state.preferences.modeProfiles[name].programs)?state.preferences.modeProfiles[name].programs.slice(0,4):defaults.programs;
+  });
   state.routines.saved = state.routines.saved && typeof state.routines.saved === "object" ? state.routines.saved : {};
   state.speechMode = state.preferences.speechMode;
 
@@ -588,7 +616,7 @@
         await callBridge(action === "previous" ? "media.previous" : action === "next" ? "media.next" : "media.playpause");
       }
       setTimeout(refreshNowPlaying20, 350);
-    }catch(err){}
+    }catch(err){logError20("media.controls",err);}
   }));
   async function monitorMusicVisual(){
     if(activeMusicMood === "neutral") return;
@@ -1124,15 +1152,82 @@
   }
 
   let setupStep20 = 0;
+  let setupFirstRun20 = false;
+  const setupMaxStep20 = 3;
+  function setupValue20(id){return document.getElementById(id);}
+  function setupDraft20(){
+    return {
+      owner:setupValue20("setupOwner").value.replace(/\s+/g," ").trim().slice(0,60),
+      city:setupValue20("setupCity").value.replace(/\s+/g," ").trim().slice(0,80),
+      treatment:setupValue20("setupTreatment").value,
+      speechMode:setupValue20("setupSpeech").value,
+      wakeWords:sanitizeWakeWords(setupValue20("setupWake").value),
+      micSensitivity:Math.max(10,Math.min(100,Number(setupValue20("setupMic").value)||55)),
+      voiceRate:Math.max(60,Math.min(140,Number(setupValue20("setupRate").value)||100)),
+      presenceLevel:setupValue20("setupPresence").value,
+      preferredVolume:Math.max(0,Math.min(100,Number(setupValue20("setupVolume").value)||0)),
+      commandHistoryEnabled:setupValue20("setupHistory").checked,
+      diagnosticsEnabled:setupValue20("setupDiagnostics").checked,
+      privacyMode:setupValue20("setupPrivate").checked
+    };
+  }
+  function validateSetupStep20(step=setupStep20){
+    const error=setupValue20("setupError");
+    const owner=setupValue20("setupOwner");
+    owner.classList.remove("invalid");
+    error.textContent="";
+    if(step===0){
+      const name=owner.value.replace(/\s+/g," ").trim();
+      if(name.length<2){
+        owner.classList.add("invalid");
+        owner.focus();
+        error.textContent="Informe um nome com pelo menos 2 caracteres.";
+        return false;
+      }
+      if(!/[\p{L}\p{N}]/u.test(name)){
+        owner.classList.add("invalid");
+        owner.focus();
+        error.textContent="O nome precisa conter letras ou números.";
+        return false;
+      }
+    }
+    if(step===1&&!sanitizeWakeWords(setupValue20("setupWake").value).length){
+      setupValue20("setupWake").focus();
+      error.textContent="Informe pelo menos uma palavra de ativação.";
+      return false;
+    }
+    return true;
+  }
+  function renderSetupSummary20(){
+    const draft=setupDraft20();
+    const treatmentLabels={senhor:"Senhor",senhora:"Senhora",name:"Apenas pelo nome",neutral:"Neutro"};
+    const speechLabels={formal:"Formal",casual:"Casual",sarcastico:"Sarcástica"};
+    const presenceLabels={vivid:"Ativa e expressiva",balanced:"Equilibrada",quiet:"Discreta"};
+    setupValue20("setupSummary").textContent=[
+      "Nome: "+draft.owner,
+      "Cidade: "+(draft.city||"não informada"),
+      "Tratamento: "+(treatmentLabels[draft.treatment]||draft.treatment),
+      "Personalidade: "+(speechLabels[draft.speechMode]||draft.speechMode),
+      "Ativação: "+draft.wakeWords.join(", "),
+      "Presença: "+(presenceLabels[draft.presenceLevel]||draft.presenceLevel),
+      "Voz: "+draft.voiceRate+"% • microfone "+draft.micSensitivity+"% • volume "+draft.preferredVolume+"%",
+      "Histórico local: "+(draft.commandHistoryEnabled?"ativado":"desativado"),
+      "Diagnóstico local: "+(draft.diagnosticsEnabled?"ativado":"desativado"),
+      "Modo privado inicial: "+(draft.privacyMode?"ativado":"desativado")
+    ].join("\n");
+  }
   function showSetupStep20(step){
-    setupStep20 = Math.max(0, Math.min(2, Number(step) || 0));
+    setupStep20 = Math.max(0, Math.min(setupMaxStep20, Number(step) || 0));
     setupWizard.querySelectorAll(".setup-step").forEach((element, index) => element.classList.toggle("active", index === setupStep20));
     setupWizard.querySelectorAll(".setup-progress span").forEach((element, index) => element.classList.toggle("active", index <= setupStep20));
     document.getElementById("setupBack").style.visibility = setupStep20 ? "visible" : "hidden";
-    document.getElementById("setupNext").textContent = setupStep20 === 2 ? "CONCLUIR" : "CONTINUAR";
+    document.getElementById("setupNext").textContent = setupStep20 === setupMaxStep20 ? "SALVAR" : "AVANÇAR";
+    if(setupStep20===setupMaxStep20)renderSetupSummary20();
+    setupValue20("setupError").textContent="";
   }
 
-  function openSetupWizard20(){
+  function openSetupWizard20(firstRun=localStorage.getItem("Maia.onboarding.completed")!=="1"){
+    setupFirstRun20=Boolean(firstRun);
     document.getElementById("setupOwner").value = state.preferences.ownerName === "senhor" ? "" : state.preferences.ownerName || "";
     document.getElementById("setupCity").value = state.preferences.city || "";
     document.getElementById("setupTreatment").value = state.preferences.treatment || "senhor";
@@ -1140,27 +1235,49 @@
     document.getElementById("setupWake").value = getWakeWords().join(", ");
     document.getElementById("setupMic").value = state.preferences.micSensitivity || 55;
     document.getElementById("setupRate").value = state.preferences.voiceRate || 100;
+    setupValue20("setupPresence").value=state.preferences.presenceLevel||"vivid";
+    setupValue20("setupVolume").value=state.preferences.preferredVolume??50;
+    setupValue20("setupHistory").checked=state.preferences.commandHistoryEnabled!==false;
+    setupValue20("setupDiagnostics").checked=state.preferences.diagnosticsEnabled!==false;
+    setupValue20("setupPrivate").checked=Boolean(state.preferences.privacyMode);
+    setupValue20("setupMicValue").textContent=setupValue20("setupMic").value+"%";
+    setupValue20("setupRateValue").textContent=setupValue20("setupRate").value+"%";
+    setupValue20("setupVolumeValue").textContent=setupValue20("setupVolume").value+"%";
+    setupValue20("setupSkip").textContent=setupFirstRun20?"AGORA NÃO":"CANCELAR";
     showSetupStep20(0);
+    document.body.classList.add("setup-active");
     setupWizard.classList.add("open");
     setupWizard.setAttribute("aria-hidden", "false");
   }
 
   function completeSetupWizard20(){
-    const owner = document.getElementById("setupOwner").value.trim();
-    const city = document.getElementById("setupCity").value.trim();
-    if(owner) state.preferences.ownerName = owner;
-    if(city) state.preferences.city = city;
-    state.preferences.treatment = document.getElementById("setupTreatment").value;
-    state.preferences.speechMode = document.getElementById("setupSpeech").value;
+    if(!validateSetupStep20(0)||!validateSetupStep20(1))return false;
+    const draft=setupDraft20();
+    state.preferences.ownerName=draft.owner;
+    state.preferences.city=draft.city;
+    state.preferences.treatment=draft.treatment;
+    state.preferences.speechMode=draft.speechMode;
     state.speechMode = state.preferences.speechMode;
-    state.preferences.wakeWords = sanitizeWakeWords(document.getElementById("setupWake").value);
-    state.preferences.micSensitivity = Number(document.getElementById("setupMic").value) || 55;
-    state.preferences.voiceRate = Number(document.getElementById("setupRate").value) || 100;
+    state.preferences.wakeWords=draft.wakeWords;
+    state.preferences.micSensitivity=draft.micSensitivity;
+    state.preferences.voiceRate=draft.voiceRate;
+    state.preferences.presenceLevel=draft.presenceLevel;
+    state.preferences.preferredVolume=draft.preferredVolume;
+    state.preferences.commandHistoryEnabled=draft.commandHistoryEnabled;
+    state.preferences.diagnosticsEnabled=draft.diagnosticsEnabled;
+    state.preferences.privacyMode=draft.privacyMode;
+    state.voiceEnabled=!draft.privacyMode;
     localStorage.setItem("Maia.onboarding.completed", "1");
+    localStorage.setItem("Maia.onboarding.completedAt",new Date().toISOString());
+    localStorage.setItem("Maia.onboarding.version","2");
     saveMemory();
     setupWizard.classList.remove("open");
     setupWizard.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("setup-active");
+    try{postModern20({type:"maia-interface-snapshot",data:horizonControlSnapshot20()});}
+    catch(err){logError20("setup.sync",err);}
     speak("Configuração concluída. A Maia está pronta.");
+    return true;
   }
 
   const baseThemeSurfaces20 = {
@@ -1317,10 +1434,41 @@
   async function runRoutine20(commands, label){
     const list = Array.isArray(commands) ? commands : String(commands || "").split(";");
     const clean = list.map(item => String(item).trim()).filter(Boolean).slice(0, 12);
-    if(!clean.length){ if(brainOutput) brainOutput.textContent = "Rotina vazia."; return; }
+    if(!clean.length){ if(brainOutput) brainOutput.textContent = "Rotina vazia."; return {completed:[],failed:["rotina vazia"]}; }
     if(brainOutput) brainOutput.textContent = "Executando " + (label || "rotina") + ":\n" + clean.join("\n");
     setBrainPanel(false);
-    for(const command of clean) await processCommand(command);
+    const completed=[],failed=[];
+    for(let index=0;index<clean.length;index++){
+      const command=clean[index];
+      const result=await processCommand(command);
+      const resultTasks=result&&Array.isArray(result.tasks)?result.tasks:[];
+      const partialFailures=resultTasks
+        .flatMap(task=>task&&task.result&&Array.isArray(task.result.failed)?task.result.failed:[]);
+      const pendingTask=resultTasks.find(task=>task&&task.result&&task.result.status==="pending_confirmation");
+      const explicitFailure=resultTasks
+        .find(task=>task&&task.result&&task.result.status==="failed");
+      if(result&&result.ok&&!partialFailures.length&&!pendingTask&&!explicitFailure)completed.push(command);
+      else if(pendingTask){
+        const permission=pendingPermissions.get(pendingTask.result.permissionKey);
+        const remaining=clean.slice(index+1);
+        if(permission&&remaining.length){
+          permission.continuation=()=>setTimeout(async()=>{
+            const resumed=await runRoutine20(remaining,(label||"rotina")+" • continuação");
+            postModern20({type:"maia-interface-control-result",text:resumed.summary});
+          },0);
+        }
+        const summary=`Rotina ${label||"personalizada"} pausada: confirme a ação pendente para continuar.`;
+        if(brainOutput)brainOutput.textContent=summary;
+        return {completed,failed,pending:[command],summary};
+      }
+      else if(explicitFailure)failed.push(command+" — "+(explicitFailure.result.error||"ação indisponível"));
+      else failed.push(command+(partialFailures.length?" — "+partialFailures.join(", "):result&&result.pending?" — aguardando confirmação":result&&result.error?" — "+result.error:""));
+    }
+    const summary=failed.length
+      ?`Rotina ${label||"personalizada"} concluída parcialmente: ${completed.length} ação(ões) concluída(s) e ${failed.length} indisponível(is).`
+      :`Rotina ${label||"personalizada"} concluída: ${completed.length} ação(ões) executada(s).`;
+    if(brainOutput)brainOutput.textContent=summary;
+    return {completed,failed,summary};
   }
 
   function renderSavedRoutines20(){
@@ -1355,11 +1503,12 @@
     localStorage.setItem("Maia.performanceMode",savedPerformance);
     document.getElementById("brainPerformanceMode").textContent = savedPerformance === "economy" ? "ATIVAR MODO NORMAL" : "ATIVAR MODO ECONOMIA";
     const presets = {
-      work:["modo foco", "volume 45", "abrir vs code"],
-      game:["modo combate", "volume 70"],
-      night:["modo repouso", "volume 25"],
-      cinema:["modo repouso", "volume 55", "abrir prime video"],
-      presentation:["modo foco", "volume 65"]
+      work:["modo trabalho"],
+      game:["modo jogo"],
+      night:["modo noite"],
+      cinema:["modo cinema"],
+      meeting:["modo reunião"],
+      study:["modo estudo"]
     };
     renderSavedRoutines20();
     brainPanel.querySelectorAll("[data-routine]").forEach(button => button.addEventListener("click", () => runRoutine20(presets[button.dataset.routine], button.textContent)));
@@ -1400,6 +1549,31 @@
       saveMemory();
       renderExtensions20();
     });
+    const modeProfile=document.getElementById("brainModeProfile");
+    const modePrograms=document.getElementById("brainModePrograms");
+    const modeVolume=document.getElementById("brainModeVolume");
+    const modeBrightness=document.getElementById("brainModeBrightness");
+    const modeDuration=document.getElementById("brainModeDuration");
+    const loadModeProfile20=()=>{
+      const profile=state.preferences.modeProfiles[modeProfile.value]||{};
+      modePrograms.value=(profile.programs||[]).join(", ");
+      modeVolume.value=profile.volume??"";
+      modeBrightness.value=profile.brightness??"";
+      modeDuration.value=profile.duration??"";
+    };
+    modeProfile.addEventListener("change",loadModeProfile20);
+    document.getElementById("brainModeProfileSave").addEventListener("click",()=>{
+      const clampOptional=(value,min,max)=>value===""?null:Math.max(min,Math.min(max,Number(value)||0));
+      state.preferences.modeProfiles[modeProfile.value]={
+        programs:modePrograms.value.split(",").map(item=>item.trim()).filter(Boolean).slice(0,4),
+        volume:clampOptional(modeVolume.value,0,100),
+        brightness:clampOptional(modeBrightness.value,0,100),
+        duration:clampOptional(modeDuration.value,1,240)
+      };
+      saveMemory();
+      brainOutput.textContent="Perfil do modo "+modeProfile.options[modeProfile.selectedIndex].textContent+" salvo.";
+    });
+    loadModeProfile20();
     document.getElementById("brainRoutineActionAdd").addEventListener("click", () => {
       const action = document.getElementById("brainRoutineAction").value;
       if(!action){ brainOutput.textContent = "Escolha uma ação para adicionar à rotina."; return; }
@@ -1620,6 +1794,40 @@
     document.getElementById("brainHaRefresh").addEventListener("click",loadHaEntities);
     document.getElementById("brainHaStatus").addEventListener("click",async()=>{try{const response=await callBridge("integration.homeAssistant.status"),result=response.result||{};if(result.baseUrl)haUrl.value=result.baseUrl;haOutput.textContent=result.connected?"✓ "+(result.locationName||"Home Assistant")+" conectado • "+(result.version||"versão detectada"):result.configured?"Configurado, porém offline: "+result.error:"Ainda não configurado."}catch(err){haOutput.textContent="Falha: "+err.message}finally{publishIntegrationResult20(haOutput.textContent)}});
     document.getElementById("brainHaRun").addEventListener("click",async()=>{const option=haEntity.options[haEntity.selectedIndex];haOutput.textContent="Executando…";try{if(!option||!option.value)throw new Error("selecione uma entidade compatível");if(!haAction.value)throw new Error("esta entidade não possui uma ação compatível");await callBridge("integration.homeAssistant.control",{entityId:option.value,domain:option.dataset.domain,service:haAction.value});haOutput.textContent="✓ Ação executada em "+option.textContent;setTimeout(()=>loadHaEntities(false),700)}catch(err){haOutput.textContent="Falha: "+err.message}finally{publishIntegrationResult20(haOutput.textContent)}});
+    const arkamaToken=document.getElementById("brainArkamaToken"),arkamaUrl=document.getElementById("brainArkamaUrl"),arkamaRelayUrl=document.getElementById("brainArkamaRelayUrl"),arkamaDeviceToken=document.getElementById("brainArkamaDeviceToken"),arkamaOutput=document.getElementById("brainArkamaOutput");
+    const money20=value=>Number(value||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    async function loadArkama20(showResult=false){
+      try{
+        const [arkamaResponse,relayResponse]=await Promise.all([callBridge("integration.arkama.status"),callBridge("integration.netlify.status")]);
+        const status=arkamaResponse.result||{},relay=relayResponse.result||{};
+        arkamaToken.value=status.webhookToken||"";
+        arkamaUrl.value=status.localUrl||"";
+        arkamaRelayUrl.value=relay.baseUrl||"";
+        document.getElementById("brainArkamaNotifications").checked=status.notifications!==false;
+        document.getElementById("brainArkamaSound").checked=status.sound!==false;
+        document.getElementById("brainArkamaVoice").checked=status.voice!==false;
+        if(showResult)arkamaOutput.textContent=[
+          "ARKAMA",
+          "Webhook local: ✓ pronto",
+          "Relay externo: "+(relay.configured?(relay.lastError?"⚠ conectado, última falha: "+relay.lastError:"✓ conectado e consultando"):"○ não configurado"),
+          "Última consulta: "+(relay.lastCheck?new Date(relay.lastCheck).toLocaleString("pt-BR"):"ainda não realizada"),
+          "Vendas registradas: "+(status.salesCount||0),
+          "Eventos aceitos: "+(status.acceptedEvents||[]).join(", ")
+        ].join("\n");
+      }catch(err){arkamaOutput.textContent="Não foi possível carregar a Arkama: "+err.message;logError20("arkama.status",err);}
+    }
+    document.getElementById("brainArkamaReveal").addEventListener("click",()=>{const visible=arkamaToken.type==="text";arkamaToken.type=visible?"password":"text";document.getElementById("brainArkamaReveal").textContent=visible?"MOSTRAR":"OCULTAR";});
+    document.getElementById("brainArkamaCopy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(arkamaUrl.value);arkamaOutput.textContent="URL do webhook copiada.";}catch(err){arkamaOutput.textContent="Copie manualmente:\n"+arkamaUrl.value;}});
+    document.getElementById("brainArkamaSave").addEventListener("click",async()=>{try{await callBridge("integration.arkama.configure",{notifications:document.getElementById("brainArkamaNotifications").checked,sound:document.getElementById("brainArkamaSound").checked,voice:document.getElementById("brainArkamaVoice").checked});arkamaOutput.textContent="Preferências de notificação salvas.";}catch(err){arkamaOutput.textContent="Falha ao salvar: "+err.message;}});
+    document.getElementById("brainArkamaConnect").addEventListener("click",async()=>{arkamaOutput.textContent="Conectando ao relay…";try{await callBridge("integration.netlify.configure",{baseUrl:arkamaRelayUrl.value,deviceToken:arkamaDeviceToken.value});arkamaDeviceToken.value="";await callBridge("integration.netlify.poll");await loadArkama20(true);}catch(err){arkamaOutput.textContent="Falha ao conectar o relay: "+err.message;}});
+    document.getElementById("brainArkamaStatus").addEventListener("click",()=>loadArkama20(true));
+    document.getElementById("brainArkamaPoll").addEventListener("click",async()=>{arkamaOutput.textContent="Buscando vendas…";try{await callBridge("integration.netlify.poll");await loadArkama20(true);}catch(err){arkamaOutput.textContent="Falha na busca: "+err.message;}});
+    document.getElementById("brainArkamaTest").addEventListener("click",async()=>{try{const response=await callBridge("integration.arkama.test");arkamaOutput.textContent=response.result&&response.result.sent?"Notificação de teste enviada.":"Notificações estão desativadas; ative e salve para testar.";}catch(err){arkamaOutput.textContent="Teste falhou: "+err.message;}});
+    document.getElementById("brainArkamaSummary").addEventListener("click",async()=>{try{const response=await callBridge("sales.localSummary",{period:document.getElementById("brainArkamaPeriod").value}),result=response.result||{};arkamaOutput.textContent=["RESUMO DE VENDAS","Aprovadas: "+(result.count||0),"Faturamento: "+money20(result.total),"Ticket médio: "+money20(result.average),"Maior venda: "+(result.largest?money20(result.largest.amount)+" • "+result.largest.product:"—"),"Produto líder: "+(result.topProduct?result.topProduct.name+" • "+result.topProduct.count+" venda(s)":"—")].join("\n");}catch(err){arkamaOutput.textContent="Resumo indisponível: "+err.message;}});
+    document.getElementById("brainArkamaHistory").addEventListener("click",async()=>{try{const response=await callBridge("integration.arkama.sales",{limit:30}),items=response.result||[];arkamaOutput.textContent=items.length?"ÚLTIMAS VENDAS\n"+items.map(item=>new Date(item.receivedAt).toLocaleString("pt-BR")+" • "+money20(item.amount)+" • "+item.product+(item.customerName?" • "+item.customerName:"")).join("\n"):"Nenhuma venda aprovada registrada.";}catch(err){arkamaOutput.textContent="Histórico indisponível: "+err.message;}});
+    document.getElementById("brainArkamaRegenerate").addEventListener("click",async()=>{if(!confirm("Gerar um novo token? O webhook atual deixará de funcionar imediatamente."))return;try{await callBridge("integration.arkama.regenerateToken");await loadArkama20(false);arkamaOutput.textContent="Novo token gerado. Atualize a URL na Arkama.";}catch(err){arkamaOutput.textContent="Não foi possível gerar o token: "+err.message;}});
+    document.getElementById("brainArkamaDisconnect").addEventListener("click",async()=>{if(!confirm("Desconectar o relay externo? O webhook local continuará disponível."))return;try{await callBridge("integration.netlify.disconnect");arkamaDeviceToken.value="";await loadArkama20(true);}catch(err){arkamaOutput.textContent="Falha ao desconectar: "+err.message;}});
+    loadArkama20(false);
     const mobilityCity=document.getElementById("brainMobilityCity"),trafficOrigin=document.getElementById("brainTrafficOrigin"),trafficKey=document.getElementById("brainTrafficKey"),trafficDestination=document.getElementById("brainTrafficDestination"),mobilityOutput=document.getElementById("brainMobilityOutput");
     document.getElementById("brainMobilitySave").addEventListener("click",async()=>{mobilityOutput.textContent="Salvando…";try{if(!mobilityCity.value.trim()&&!trafficOrigin.value.trim()&&!trafficKey.value.trim())throw new Error("informe ao menos a cidade ou a origem");const response=await callBridge("integration.mobility.configure",{city:mobilityCity.value,origin:trafficOrigin.value,googleApiKey:trafficKey.value}),result=response.result||{};trafficKey.value="";mobilityOutput.textContent="✓ Preferências salvas. Trânsito ao vivo: "+(result.trafficConfigured?"configurado":"aguardando chave Google Routes")}catch(err){mobilityOutput.textContent="Falha: "+err.message}finally{publishIntegrationResult20(mobilityOutput.textContent)}});
     document.getElementById("brainWeatherTest").addEventListener("click",async()=>{mobilityOutput.textContent="Consultando previsão…";try{if(!mobilityCity.value.trim())throw new Error("informe uma cidade");const response=await callBridge("weather.complete",{location:mobilityCity.value}),result=response.result||{},current=result.current||{},daily=result.daily||{};if(!Number.isFinite(Number(current.temperature_2m)))throw new Error("resposta meteorológica incompleta");const days=(daily.time||[]).slice(0,5).map((date,index)=>`${new Date(date+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short"})}: ${Math.round(daily.temperature_2m_min[index])}°–${Math.round(daily.temperature_2m_max[index])}° • chuva ${Math.round(daily.precipitation_probability_max[index]||0)}%`);mobilityOutput.textContent=[result.location&&result.location.name||mobilityCity.value,`Agora: ${Math.round(current.temperature_2m)}°C • sensação ${Math.round(current.apparent_temperature)}°C • umidade ${Math.round(current.relative_humidity_2m)}%`,`Vento: ${Math.round(current.wind_speed_10m)} km/h • rajadas ${Math.round(current.wind_gusts_10m)} km/h`,"",...days].join("\n")}catch(err){mobilityOutput.textContent="Clima indisponível: "+err.message}finally{publishIntegrationResult20(mobilityOutput.textContent)}});
@@ -1645,7 +1853,11 @@
           "Home Assistant: " + (haStatus.connected?"✓ conectado":haStatus.configured?"⚠ configurado, mas offline":"○ não configurado"),
           "Clima: " + (mobilityStatus.city?"✓ cidade "+mobilityStatus.city:"○ cidade não configurada"),
           "Trânsito: " + (mobilityStatus.trafficConfigured?"✓ Google Routes configurado":"○ chave Google Routes não configurada"),
-          "Voz auxiliar: " + (status.speechHelper ? "✓ ativa" : "○ opcional/inativa"),
+          "Voz auxiliar: " + (status.browserVoice && status.browserVoice.state === "listening" ? "✓ ouvindo" :
+            status.browserVoice && status.browserVoice.state === "microphone-error" ? "✕ microfone bloqueado" :
+            status.browserVoice && status.browserVoice.error ? "⚠ " + status.browserVoice.error :
+            status.speechHelper ? "◌ iniciando" : "○ inativa"),
+          ...(status.warnings || []).map(item => "⚠ " + item.source + ": " + item.message),
           "Aplicativos encontrados:",
           apps.length ? apps.join("\n") : "○ nenhum streaming compatível detectado"
         ].join("\n");
@@ -1655,28 +1867,37 @@
     document.getElementById("brainTestAll").addEventListener("click", () => runSystemTest20(brainOutput));
     document.getElementById("brainOpenSetup").addEventListener("click", () => {
       setBrainPanel(false);
-      openSetupWizard20();
+      openSetupWizard20(false);
     });
     document.getElementById("setupBack").addEventListener("click", () => showSetupStep20(setupStep20 - 1));
     setupWizard.addEventListener("click", (event) => event.stopPropagation());
     document.getElementById("setupSkip").addEventListener("click", () => {
+      if(setupFirstRun20)localStorage.setItem("Maia.onboarding.deferredAt",new Date().toISOString());
       setupWizard.classList.remove("open");
       setupWizard.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("setup-active");
     });
     document.getElementById("setupNext").addEventListener("click", () => {
-      if(setupStep20 < 2) showSetupStep20(setupStep20 + 1);
+      if(!validateSetupStep20())return;
+      if(setupStep20 < setupMaxStep20) showSetupStep20(setupStep20 + 1);
       else completeSetupWizard20();
     });
     document.getElementById("setupTest").addEventListener("click", () => runSystemTest20(setupResults));
+    [["setupMic","setupMicValue"],["setupRate","setupRateValue"],["setupVolume","setupVolumeValue"]].forEach(([inputId,outputId])=>{
+      setupValue20(inputId).addEventListener("input",()=>{setupValue20(outputId).textContent=setupValue20(inputId).value+"%";});
+    });
+    setupValue20("setupOwner").addEventListener("input",()=>{setupValue20("setupOwner").classList.remove("invalid");setupValue20("setupError").textContent="";});
     setupWizard.addEventListener("keydown", (event) => {
-      if(event.key === "Enter" && event.target.tagName !== "SELECT"){
+      if(event.key === "Enter" && event.target.tagName !== "SELECT" && event.target.type!=="range"){
         event.preventDefault();
-        if(setupStep20 < 2) showSetupStep20(setupStep20 + 1);
+        if(!validateSetupStep20())return;
+        if(setupStep20 < setupMaxStep20) showSetupStep20(setupStep20 + 1);
         else completeSetupWizard20();
       }
-      if(event.key === "Escape"){
+      if(event.key === "Escape"&&!setupFirstRun20){
         setupWizard.classList.remove("open");
         setupWizard.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("setup-active");
       }
     });
     document.getElementById("brainPrivacyToggle").addEventListener("click", () => {
@@ -1714,12 +1935,15 @@
       const t = window.__maiaTelemetry || {};
       const quality = window.nucleo && window.nucleo.getQuality ? window.nucleo.getQuality() : {};
       let integrations = null;
-      try{ integrations = (await callBridge("integration.status")).result; }catch(err){}
+      try{ integrations = (await callBridge("integration.status")).result; }catch(err){ logError20("diagnostics.integrations", err); }
       brainOutput.textContent = [
         "DIAGNÓSTICO 3.2",
         "Bridge local: " + (state.bridgeOnline ? "online" : "indisponível"),
         "Microfone: " + (state.preferences.privacyMode ? "desativado pelo modo privado" : state.listening ? "ouvindo" : "aguardando"),
-        "Reconhecimento: " + (SR ? "disponível" : "indisponível neste sistema"),
+        "Reconhecimento: " + (integrations && integrations.browserVoice && integrations.browserVoice.state === "listening" ? "ouvindo pelo Edge" :
+          integrations && integrations.browserVoice && integrations.browserVoice.state === "microphone-error" ? "microfone bloqueado" :
+          integrations && integrations.browserVoice && integrations.browserVoice.error ? "falha: " + integrations.browserVoice.error :
+          SR ? "disponível, aguardando" : "indisponível neste sistema"),
         "Internet: " + (t.internet_online === true ? "online" : t.internet_online === false ? "offline" : "verificando"),
         "Spotify: " + (integrations && integrations.spotify && integrations.spotify.connected ? "conectado" : "não conectado"),
         "Última fala: " + (state.diagnostics.heard || "—"),
@@ -1774,7 +1998,7 @@
   }
 
   function rememberCommand(command, intent){
-    if(state.preferences.privacyMode) return;
+    if(state.preferences.privacyMode || !state.preferences.commandHistoryEnabled) return;
     const text = String(command || "").trim();
     if(!text) return;
     state.commandHistory.unshift({text, intent: intent || "unknown", at: new Date().toISOString()});
@@ -2150,8 +2374,9 @@
     const amount = Number(sale && sale.amount || 0);
     const formatted = amount.toLocaleString("pt-BR", {style:"currency", currency:"BRL"});
     const product = String(sale && sale.product || "Venda Arkama");
+    const notificationSettings = sale && sale.notificationSettings || {};
     suppressClaps(6000);
-    playSaleSound();
+    if(notificationSettings.sound !== false) playSaleSound();
     setVisualMode("focus");
     setCore("VENDA APROVADA");
     setHud(("VENDA " + formatted).toUpperCase(), "speaking");
@@ -2163,7 +2388,7 @@
       "Missão cumprida. Mantenha o ritmo, você está avançando!",
       "Ótimo trabalho! O progresso acaba de virar resultado."
     ]);
-    speak("Sua venda no valor de " + formatted + " foi aprovada com sucesso. " + product + ". " + celebration);
+    if(notificationSettings.voice !== false) speak("Sua venda no valor de " + formatted + " foi aprovada com sucesso. " + product + ". " + celebration);
   }
 
   async function callBridge(action, payload){
@@ -2199,7 +2424,8 @@
       if(!response.ok || data.ok === false) throw new Error(data.error || "falha na conexão do Maia");
       return data;
     }catch(err){
-      logError20(action, err);
+      const aborted=err&&(err.name==="AbortError"||/abort|cancelad/i.test(String(err.message||err)));
+      if(!(aborted&&backgroundAbortSources20.has(action)))logError20(action,err);
       throw err;
     }finally{
       clearTimeout(timer);
@@ -2207,7 +2433,7 @@
   }
 
   function logError20(source, error){
-    if(state.preferences.privacyMode) return;
+    if(state.preferences.privacyMode || !state.preferences.diagnosticsEnabled) return;
     const message = String(error && error.message || error || "erro desconhecido").slice(0, 500);
     state.errorLog.unshift({source:String(source || "sistema"), message, at:new Date().toISOString()});
     state.errorLog = state.errorLog.slice(0, 100);
@@ -2348,6 +2574,7 @@
       });
       await fetch(BRIDGE_URL + "/voice/start", {method:"POST", headers:bridgeHeaders()});
     }catch(err){
+      logError20("voice.native.start",err);
       setCore("VOZ NATIVA OFF");
     }
   }
@@ -2366,6 +2593,19 @@
         if(data.text){
           setHud("OUVI: " + data.text.slice(0, 34).toUpperCase(), "listening");
           handleVoice(data.text, "web");
+        }
+      });
+      events.addEventListener("browser-status", (event) => {
+        const data = JSON.parse(event.data);
+        if(data.state === "listening"){
+          setCore("VOZ ONLINE ATIVA");
+          setHud("DIGA MAIA", "listening");
+        }else if(data.state === "microphone-error"){
+          setCore("MICROFONE BLOQUEADO");
+          setHud("LIBERE O MICROFONE NO WINDOWS", "idle");
+        }else if(data.state === "recognition-error" || data.state === "start-error"){
+          setCore("FALHA NO RECONHECIMENTO");
+          setHud(String(data.error || "ERRO DE VOZ").toUpperCase().slice(0, 32), "idle");
         }
       });
       events.addEventListener("sale-approved", (event) => {
@@ -2832,11 +3072,12 @@
 
   function parseHomeAssistantCommand(text){
     const source=String(text||"").trim(),value=normalize(source);
+    if(/\bmodo\s+(trabalho|jogo|noite|cinema|reuniao|estudo)\b/.test(value))return null;
     let service="";
     if(/\b(acender|ligar|ative|ativar|abrir)\b/.test(value))service=/\babrir\b/.test(value)?"open_cover":"turn_on";
     else if(/\b(apagar|desligar|desative|desativar|fechar)\b/.test(value))service=/\bfechar\b/.test(value)?"close_cover":"turn_off";
     else if(/\b(executar|execute|rodar|rode|ativar cena|modo)\b/.test(value))service="trigger";
-    if(!service||!/\b(luz|lampada|lâmpada|tomada|ventilador|cortina|persiana|cena|automacao|automação|casa|home assistant|modo)\b/.test(value))return null;
+    if(!service||!/\b(luz|lampada|lâmpada|tomada|ventilador|cortina|persiana|cena|automacao|automação|casa|home assistant)\b/.test(value))return null;
     const query=source.replace(/\b(acender|acenda|ligar|ligue|ative|ativar|apagar|apague|desligar|desligue|desative|desativar|abrir|abra|fechar|feche|executar|execute|rodar|rode)\b/gi,"").replace(/\b(?:a|o|as|os|do|da|no|na)\s+/gi," ").replace(/[.!?]+$/g,"").replace(/\s+/g," ").trim();
     return {service,query};
   }
@@ -3073,7 +3314,10 @@
   }
   if(window.maiaDesktop && window.maiaDesktop.onConnectRoutine){
     window.maiaDesktop.onConnectRoutine((name) => {
-      const presets={work:["modo foco","volume 45","abrir vs code"],game:["modo combate","volume 70"],night:["modo repouso","volume 25"],cinema:["modo repouso","volume 55","abrir prime video"],presentation:["modo foco","volume 65"]};
+      const presets={
+        work:["modo trabalho"],game:["modo jogo"],night:["modo noite"],cinema:["modo cinema"],
+        meeting:["modo reunião"],study:["modo estudo"],presentation:["modo reunião"]
+      };
       const commands=state.routines.saved[name]||presets[name]||[];
       if(commands.length) runRoutine20(commands,name);
       else brainOutput.textContent="Rotina solicitada pelo celular não encontrada: "+name+".";
@@ -3758,12 +4002,13 @@
       state.waitingCommandUntil = Date.now() + 30000;
       setCore("AGUARDANDO CONFIRMAÇÃO");
       setTimeout(() => pendingPermissions.delete(key), 30000);
-      return null;
+      return {status:"pending_confirmation",permissionKey:key};
     }
 
     async function runMacro(name){
       const completed=[];
       const failed=[];
+      const profile=state.preferences.modeProfiles[name]||defaultModeProfiles20[name]||{programs:[]};
       const step=async(label,action)=>{
         try{await action();completed.push(label);return true;}
         catch(err){failed.push(label+": "+String(err&&err.message||err));logError20("macro."+name+"."+label,err);return false;}
@@ -3771,58 +4016,63 @@
       if(name === "work"){
         setVisualMode("focus");
         completed.push("interface em foco");
-        await step("volume",()=>callBridge("volume.set", {level: state.preferences.preferredVolume || 50}));
-        await step("Chrome",()=>callBridge("system.openProgram", {program:"chrome"}));
-        await step("VS Code",()=>callBridge("system.openProgram", {program:"vs code"}));
-        rememberFavoriteApp("chrome");
-        rememberFavoriteApp("vs code");
-        speak(failed.length?"Modo trabalho ativado parcialmente. "+completed.join(", ")+". Não consegui: "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo trabalho iniciado. Chrome, VS Code e volume preferido ajustados.");
+        if(profile.volume!=null)await step("volume",()=>callBridge("volume.set", {level:profile.volume}));
+        for(const program of profile.programs)await step(program,()=>callBridge("system.openProgram",{program}));
+        profile.programs.forEach(rememberFavoriteApp);
+        speak(failed.length?"Modo trabalho ativado parcialmente. "+completed.join(", ")+". Não consegui: "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo trabalho iniciado. "+completed.join(", ")+".");
         return {name,completed,failed};
       }
       if(name === "game"){
         setVisualMode("combat");
         completed.push("interface em combate");
-        await step("volume",()=>callBridge("volume.set", {level:75}));
-        await step("Spotify",()=>callBridge("system.openProgram", {program:"spotify"}));
-        rememberFavoriteApp("spotify");
-        speak(failed.length?"Modo jogo ativado parcialmente. Não consegui preparar "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo jogo iniciado. Volume alto e Spotify preparados.");
+        if(profile.volume!=null)await step("volume",()=>callBridge("volume.set",{level:profile.volume}));
+        for(const program of profile.programs)await step(program,()=>callBridge("system.openProgram",{program}));
+        profile.programs.forEach(rememberFavoriteApp);
+        speak(failed.length?"Modo jogo ativado parcialmente. Não consegui preparar "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo jogo iniciado. "+completed.join(", ")+".");
         return {name,completed,failed};
       }
       if(name === "night"){
         setVisualMode("rest");
         completed.push("interface em repouso");
-        await step("volume",()=>callBridge("volume.set", {level:25}));
-        await step("brilho",()=>callBridge("brightness.set", {level:30}));
-        speak(failed.length?"Modo noite ativado. O brilho não pôde ser alterado neste monitor, mas o restante foi aplicado.":"Modo noite ativado. Volume baixo e brilho reduzido.");
+        if(profile.volume!=null)await step("volume",()=>callBridge("volume.set",{level:profile.volume}));
+        if(profile.brightness!=null)await step("brilho",()=>callBridge("brightness.set",{level:profile.brightness}));
+        for(const program of profile.programs)await step(program,()=>callBridge("system.openProgram",{program}));
+        speak(failed.length?"Modo noite ativado parcialmente. Não consegui: "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo noite ativado. "+completed.join(", ")+".");
         return {name,completed,failed};
       }
       if(name === "cinema"){
         setVisualMode("rest");
         completed.push("interface em repouso");
-        await step("volume",()=>callBridge("volume.set", {level:55}));
-        const service = context.lastStreaming || "prime";
-        context.lastStreaming = service;
-        context.activeMedia = "streaming";
-        saveContext();
-        await step("streaming",()=>callBridge("streaming.open", {service}));
-        speak(failed.length?"Modo cinema ativado parcialmente. Confira se o aplicativo de streaming está instalado.":"Modo cinema ativado. Streaming aberto, volume ajustado e controles de reprodução preparados.");
+        if(profile.volume!=null)await step("volume",()=>callBridge("volume.set",{level:profile.volume}));
+        if(profile.programs.length){
+          for(const program of profile.programs)await step(program,()=>callBridge("system.openProgram",{program}));
+        }else{
+          const service=context.lastStreaming||"prime";
+          context.lastStreaming=service;context.activeMedia="streaming";saveContext();
+          await step("streaming",()=>callBridge("streaming.open",{service}));
+        }
+        speak(failed.length?"Modo cinema ativado parcialmente. Não consegui: "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo cinema ativado. "+completed.join(", ")+".");
         return {name,completed,failed};
       }
       if(name === "meeting"){
         setVisualMode("focus");
         completed.push("interface em foco");
-        await step("volume",()=>callBridge("volume.set", {level:35}));
-        await step("aplicativo de reunião",()=>callBridge("meeting.open"));
-        speak(failed.length?"Modo reunião ativado parcialmente. Abra seu aplicativo de reunião manualmente.":"Modo reunião preparado. Aplicativo de reunião aberto, volume ajustado e interface em foco.");
+        if(profile.volume!=null)await step("volume",()=>callBridge("volume.set",{level:profile.volume}));
+        if(profile.programs.length){
+          for(const program of profile.programs)await step(program,()=>callBridge("system.openProgram",{program}));
+        }else await step("aplicativo de reunião",()=>callBridge("meeting.open"));
+        speak(failed.length?"Modo reunião ativado parcialmente. Não consegui: "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo reunião preparado. "+completed.join(", ")+".");
         return {name,completed,failed};
       }
       if(name === "study"){
         setVisualMode("focus");
         completed.push("interface em foco");
-        await step("volume",()=>callBridge("volume.set", {level:35}));
-        addSchedule({type:"reminder", message:"Sessão de estudo concluída. Faça uma pausa.", dueAt:Date.now() + 50 * 60000, label:"estudo"});
-        completed.push("lembrete de 50 minutos");
-        speak("Modo estudo iniciado. Volume reduzido e sessão de cinquenta minutos programada.");
+        if(profile.volume!=null)await step("volume",()=>callBridge("volume.set",{level:profile.volume}));
+        for(const program of profile.programs)await step(program,()=>callBridge("system.openProgram",{program}));
+        const minutes=profile.duration||50;
+        addSchedule({type:"reminder",message:"Sessão de estudo concluída. Faça uma pausa.",dueAt:Date.now()+minutes*60000,label:"estudo"});
+        completed.push("lembrete de "+minutes+" minutos");
+        speak("Modo estudo iniciado. "+completed.join(", ")+".");
         return {name,completed,failed};
       }
       return {name,completed,failed:["modo desconhecido"]};
@@ -4278,9 +4528,10 @@
           break;
         case "system.close":
           if(!task.program){ speak("Não sei qual programa devo fechar."); break; }
-          await requirePermission("system.close", task.program, async () => {
+          task.result=await requirePermission("system.close", task.program, async () => {
             await callBridge("system.closeProgram", {program: task.program});
             speak("Fechando " + task.program + ".");
+            return {status:"completed"};
           });
           break;
         case "permission.confirm": {
@@ -4289,6 +4540,7 @@
           pendingPermissions.delete(key);
           if(pending && pending.executor){
             await pending.executor();
+            if(pending.continuation)pending.continuation();
           }else{
             speak("Confirmação recebida, mas não encontrei a ação pendente.");
           }
@@ -4309,18 +4561,20 @@
           speak(expressive("complete", "Brilho ajustado para " + task.level + " por cento."));
           break;
         case "system.shutdown":
-          await requirePermission("system.shutdown", "desligar o computador", async () => {
+          task.result=await requirePermission("system.shutdown", "desligar o computador", async () => {
             await callBridge("system.shutdown", {seconds: 30});
             speak("Confirmado. O computador será desligado em trinta segundos.");
+            return {status:"completed"};
           });
           break;
         case "schedule.action": {
           const item = task.schedule;
           if(item.type === "system.shutdown"){
-            await requirePermission("schedule.shutdown", "agendar desligamento do computador", async () => {
+            task.result=await requirePermission("schedule.shutdown", "agendar desligamento do computador", async () => {
               const scheduled = addSchedule(item);
               speak(expressive("reminder", "Agendamento criado para " + new Date(scheduled.dueAt).toLocaleString("pt-BR") + "."));
               markDailyProgress();
+              return {status:"completed"};
             });
           }else{
             const scheduled = addSchedule(item);
@@ -4935,7 +5189,7 @@
               if(item && item.intent && Array.isArray(item.synonyms)) commandBank.push(item);
             }
           }
-        }catch(err){}
+        }catch(err){logError20("commands.database",err);}
       },
       async run(input){
         const parts = splitComposite(input);
@@ -4951,6 +5205,7 @@
           const extension = extensionForIntent20(task.intent);
           if(extension && !extensionEnabled20(extension.id)){
             speak("A extensão " + (extension.name || extension.id) + " está desativada. Ative-a na Central de Extensões.");
+            task.result={status:"failed",error:"extensão desativada"};
             continue;
           }
           await execute(task);
@@ -5290,7 +5545,7 @@
   function postModern20(message){
     if(maiaInterfaceFrame&&maiaInterfaceFrame.contentWindow)maiaInterfaceFrame.contentWindow.postMessage(message,"*");
   }
-  const horizonFieldIds20=new Set(["brainOwnerName","brainCity","brainTreatment","brainSpeechMode","brainPresence","brainVolume","brainWakeWords","brainHaUrl","brainHaToken","brainHaEntity","brainHaAction","brainMobilityCity","brainTrafficOrigin","brainTrafficKey","brainTrafficDestination","brainTheme","brainQuality","brainIntensity","brainAutoTheme","brainVoiceRate","brainMicSensitivity","brainClockType","brainClockWhen","brainClockMessage","brainExtensionSelect","brainExtensionFilter","brainExtensionSearch"]);
+  const horizonFieldIds20=new Set(["brainOwnerName","brainCity","brainTreatment","brainSpeechMode","brainPresence","brainVolume","brainWakeWords","brainHistoryPreference","brainDiagnosticsPreference","brainHaUrl","brainHaToken","brainHaEntity","brainHaAction","brainMobilityCity","brainTrafficOrigin","brainTrafficKey","brainTrafficDestination","brainTheme","brainQuality","brainIntensity","brainAutoTheme","brainVoiceRate","brainMicSensitivity","brainClockType","brainClockWhen","brainClockMessage","brainExtensionSelect","brainExtensionFilter","brainExtensionSearch"]);
   const horizonButtonIds20=new Set(["brainTreatmentApply","brainHaConnect","brainHaRefresh","brainHaStatus","brainHaRun","brainWeatherTest","brainMobilitySave","brainTrafficCheck","brainConnectEnable","brainConnectRefresh","brainConnectCopy","brainConnectForget","brainConnectDisable","brainThemeApply","brainQualityApply","brainIntensityApply","brainAutoThemeApply","brainVoiceApply","brainMicApply","brainClockAdd","brainClockRefresh","brainWindowsClockOpen","brainExtensionCommands","brainExtensionToggle","brainMemoryView","brainHistoryView","brainBackupExport","brainBackupImport","brainPrivacyView","brainDiagnostics","brainUpdateCheck","brainPerformanceMode","brainVisualPreview","brainIntegrationStatus","brainTestAll"]);
   function horizonControlSnapshot20(){
     const fields={};
@@ -5324,6 +5579,22 @@
       status:{connect:document.getElementById("brainConnectStatus")?.textContent||"",home:document.getElementById("brainHaOutput")?.textContent||"",mobility:document.getElementById("brainMobilityOutput")?.textContent||"",clock:document.getElementById("brainClockList")?.textContent||"",general:brainOutput?.textContent||""}
     };
   }
+  async function refreshArkamaHorizon20(text=""){
+    try{
+      const [statusResponse,relayResponse]=await Promise.all([callBridge("integration.arkama.status"),callBridge("integration.netlify.status")]);
+      const status=statusResponse.result||{},relay=relayResponse.result||{};
+      const detail=text||[
+        "ARKAMA",
+        "Webhook local: ✓ pronto",
+        "Relay externo: "+(relay.configured?(relay.lastError?"⚠ "+relay.lastError:"✓ conectado"):"○ não configurado"),
+        "Última consulta: "+(relay.lastCheck?new Date(relay.lastCheck).toLocaleString("pt-BR"):"ainda não realizada"),
+        "Vendas registradas: "+(status.salesCount||0)
+      ].join("\n");
+      postModern20({type:"maia-arkama-state",data:{status,relay},text:detail});
+    }catch(err){
+      postModern20({type:"maia-arkama-state",data:{},text:"Falha ao carregar a Arkama: "+String(err.message||err)});
+    }
+  }
   function formatModernCommandResult20(command,result){
     if(!result||!result.ok)return result&&result.busy?"A Maia já está executando outro comando.":`Não consegui concluir: ${result&&result.error||"erro desconhecido"}`;
     const tasks=Array.isArray(result.tasks)?result.tasks:[];
@@ -5354,7 +5625,9 @@
       if(conversational){
         const response=await callBridge("brain.think",{prompt:text});
         const brain=response&&response.result;
-        postModern20({type:"maia-interface-result",terminal:Boolean(message.terminal),text:brain&&brain.reply?brain.reply:"Não consegui formar uma resposta válida."});
+        const sources=brain&&Array.isArray(brain.sources)?brain.sources.filter(Boolean).slice(0,3):[];
+        const sourceText=sources.length?"\n\nFontes:\n"+sources.map(source=>"• "+source).join("\n"):"";
+        postModern20({type:"maia-interface-result",terminal:Boolean(message.terminal),text:brain&&brain.reply?brain.reply+sourceText:"Não consegui formar uma resposta válida."});
       }else{
         const result=await processCommand(text);
         postModern20({type:"maia-interface-result",terminal:Boolean(message.terminal),text:formatModernCommandResult20(text,result)});
@@ -5373,6 +5646,44 @@
       postModern20({type:"maia-interface-theme",data:horizonThemePayload20(state.preferences.theme||"violet")});
       postModern20({type:"maia-interface-performance",mode:localStorage.getItem("Maia.performanceMode")==="economy"?"economy":"normal"});
       refreshConnect20();
+      refreshArkamaHorizon20();
+    }
+    if(message.type==="maia-arkama-action"){
+      (async()=>{
+        const action=String(message.action||""),values=message.values||{};
+        try{
+          let text="";
+          if(action==="save"){
+            await callBridge("integration.arkama.configure",{notifications:Boolean(values.notifications),sound:Boolean(values.sound),voice:Boolean(values.voice)});
+            text="Preferências de notificações salvas.";
+          }else if(action==="connect"){
+            if(!String(values.relayUrl||"").trim()||!String(values.deviceToken||"").trim())throw new Error("informe o endereço HTTPS e o token do dispositivo");
+            await callBridge("integration.netlify.configure",{baseUrl:values.relayUrl,deviceToken:values.deviceToken});
+            await callBridge("integration.netlify.poll");
+            text="Relay conectado e primeira consulta concluída.";
+          }else if(action==="test"){
+            const response=await callBridge("integration.arkama.test");
+            text=response.result&&response.result.sent?"Notificação de teste enviada.":"Notificações estão desativadas.";
+          }else if(action==="summary"){
+            const response=await callBridge("sales.localSummary",{period:values.period||"month"}),result=response.result||{};
+            const money=value=>Number(value||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+            text=["RESUMO DE VENDAS","Aprovadas: "+(result.count||0),"Faturamento: "+money(result.total),"Ticket médio: "+money(result.average),"Maior venda: "+(result.largest?money(result.largest.amount)+" • "+result.largest.product:"—"),"Produto líder: "+(result.topProduct?result.topProduct.name+" • "+result.topProduct.count+" venda(s)":"—")].join("\n");
+          }else if(action==="history"){
+            const response=await callBridge("integration.arkama.sales",{limit:30}),items=response.result||[];
+            const money=value=>Number(value||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+            text=items.length?"ÚLTIMAS VENDAS\n"+items.map(item=>new Date(item.receivedAt).toLocaleString("pt-BR")+" • "+money(item.amount)+" • "+item.product+(item.customerName?" • "+item.customerName:"")).join("\n"):"Nenhuma venda aprovada registrada.";
+          }else if(action==="poll"){
+            await callBridge("integration.netlify.poll"); text="Busca de vendas concluída.";
+          }else if(action==="regenerate"){
+            await callBridge("integration.arkama.regenerateToken"); text="Novo token gerado. Atualize o webhook na Arkama.";
+          }else if(action==="disconnect"){
+            await callBridge("integration.netlify.disconnect"); text="Relay desconectado. O webhook local continua ativo.";
+          }else if(action!=="status")throw new Error("ação Arkama inválida");
+          await refreshArkamaHorizon20(text);
+        }catch(err){
+          await refreshArkamaHorizon20("Falha: "+String(err.message||err));
+        }
+      })();
     }
     if(message.type==="maia-interface-command")handleModernCommand20(message);
     if(message.type==="maia-routine-action"){
@@ -5390,8 +5701,8 @@
           if(deleteName&&state.routines.saved[deleteName]){delete state.routines.saved[deleteName];saveMemory();renderSavedRoutines20();}
           postModern20({type:"maia-interface-control-result",text:deleteName?`Rotina “${deleteName}” removida.`:"Selecione uma rotina."});
         }else if(action==="run"){
-          await runRoutine20(commands,name||"rotina");
-          postModern20({type:"maia-interface-control-result",text:`Rotina “${name||"personalizada"}” concluída.`});
+          const result=await runRoutine20(commands,name||"rotina");
+          postModern20({type:"maia-interface-control-result",text:result.summary});
         }
         postModern20({type:"maia-interface-snapshot",data:horizonControlSnapshot20()});
       })();
@@ -5460,9 +5771,17 @@
       const clickId=String(message.click||"");
       if(clickId==="horizonProfileApply"){
         const changed=Object.keys(values);
+        const requestedOwner=String(values.brainOwnerName??state.preferences.ownerName??"").replace(/\s+/g," ").trim();
+        if(changed.includes("brainOwnerName")&&requestedOwner.length<2){
+          postModern20({type:"maia-interface-control-result",text:"Informe um nome com pelo menos 2 caracteres."});
+          return;
+        }
+        if(changed.includes("brainWakeWords")&&!sanitizeWakeWords(values.brainWakeWords).length){
+          postModern20({type:"maia-interface-control-result",text:"Informe pelo menos uma palavra de ativação."});
+          return;
+        }
         if(changed.includes("brainOwnerName")){
-          const owner=String(values.brainOwnerName||"").trim();
-          state.preferences.ownerName=owner||"senhor";
+          state.preferences.ownerName=requestedOwner;
         }
         if(changed.includes("brainCity"))state.preferences.city=String(values.brainCity||"").trim();
         if(changed.includes("brainTreatment")&&["senhor","senhora","name","neutral"].includes(values.brainTreatment))state.preferences.treatment=values.brainTreatment;
@@ -5473,6 +5792,8 @@
         if(changed.includes("brainPresence")&&["vivid","balanced","quiet"].includes(values.brainPresence))state.preferences.presenceLevel=values.brainPresence;
         if(changed.includes("brainVolume"))state.preferences.preferredVolume=Math.max(0,Math.min(100,Number(values.brainVolume)||0));
         if(changed.includes("brainWakeWords"))state.preferences.wakeWords=sanitizeWakeWords(values.brainWakeWords);
+        if(changed.includes("brainHistoryPreference"))state.preferences.commandHistoryEnabled=values.brainHistoryPreference!=="off";
+        if(changed.includes("brainDiagnosticsPreference"))state.preferences.diagnosticsEnabled=values.brainDiagnosticsPreference!=="off";
         savePreferences();
         brainOutput.textContent=changed.length===1?"Alteração salva com sucesso.":`${changed.length} alterações salvas com sucesso.`;
         postModern20({type:"maia-interface-control-result",text:brainOutput.textContent});
@@ -5525,7 +5846,7 @@
             postModern20({type:"maia-interface-processes",items:response?.result?.items||[]});
             return;
           }
-          const response=await callBridge(message.action,{query:String(message.query||"").slice(0,100),path:String(message.path||"")});
+          const response=await callBridge(message.action,{query:String(message.query||"").slice(0,100),fileType:String(message.fileType||""),path:String(message.path||"")});
           const result=response&&response.result||{};
           if(message.action==="downloads.list")postModern20({type:"maia-interface-files",items:result.items||[],message:"Downloads recentes."});
           else if(message.action==="file.search")postModern20({type:"maia-interface-files",items:result.items||[],message:`${(result.items||[]).length} resultado(s) encontrado(s).`});

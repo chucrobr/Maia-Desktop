@@ -21,6 +21,7 @@ const requiredFiles = [
   "src/ui/maia-floating-button.html",
   "src/ui/maia-connect.html",
   "src/bridge/server.js",
+  "src/bridge/file-search.js",
   "src/bridge/network-scanner.js",
   "src/config/maia-commands.json",
   "src/config/maia-extensions.json",
@@ -117,7 +118,7 @@ try {
   }
   if (
     !bridgeSource.includes("if(!readNetlifySalesConfig()) return;") ||
-    !bridgeSource.includes("fs.writeFileSync(netlifySalesConfigPath()") ||
+    !bridgeSource.includes("writeJsonConfig(netlifySalesConfigPath(), config)") ||
     !bridgeSource.includes("startNetlifySalesPolling();")
   ) fail("Polling configurado da Arkama/Netlify não está protegido.");
   const changelog = fs.readFileSync(path.join(root, "docs/CHANGELOG.md"), "utf8");

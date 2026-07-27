@@ -1,5 +1,26 @@
 # Novidades da Maia
 
+## 5.3.0-beta.11 — Automações reais e regressões
+
+- Modos locais deixaram de ser confundidos com comandos do Home Assistant.
+- Central, Horizon e Maia Connect agora executam o mesmo motor real dos seis modos.
+- Rotinas informam execução parcial, extensões desativadas e confirmações pendentes.
+- Rotinas pausam em ações sensíveis e retomam somente depois da confirmação.
+- Os seis modos ganharam perfis persistentes de programas, volume, brilho e duração.
+- Busca de arquivos aplica de verdade os filtros de documentos, imagens, vídeos, áudios e compactados.
+- Perguntas atuais podem usar notícias, data e consultas enciclopédicas com indicação das fontes retornadas.
+- A busca de arquivos foi extraída para um módulo testável separado.
+- Primeiro acesso redesenhado em quatro etapas: Perfil, Voz, Privacidade e Revisão.
+- Perfil e Dados agora compartilham validação, histórico local, diagnóstico e sincronização imediata com a Horizon.
+- O assistente inicial impede fechamento acidental, mostra valores dos controles e salva a configuração de forma atômica.
+- Reconhecimento online agora isola o perfil do Edge por sessão, confirma a abertura do microfone e informa o estado real à Saúde.
+- Perfis temporários antigos do reconhecimento são limpos sem bloquear novas sessões.
+- Saúde diferencia inicialização, escuta ativa, permissão bloqueada e falhas reais de integração.
+- Painel Arkama completo adicionado à Horizon com webhook, relay HTTPS, tokens, notificações, histórico e resumo de vendas.
+- Vendas Arkama aprovadas respeitam preferências independentes de notificação, som e voz.
+- Tokens de integrações são armazenados localmente com permissão restrita.
+- Testes de regressão protegem modos, confirmações, Connect e filtros.
+
 ## 5.3.0-beta.10 — Modos e integrações
 
 - Modos Trabalho, Jogo, Noite, Cinema, Reunião e Estudo agora toleram aplicativos indisponíveis sem cancelar toda a sequência.

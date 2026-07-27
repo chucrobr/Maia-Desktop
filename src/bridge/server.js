@@ -7,6 +7,7 @@ const QRCode = require("qrcode");
 const {spawn, spawnSync} = require("child_process");
 const {MegaBrain} = require("../brain/mega-brain.js");
 const {scanNetwork} = require("./network-scanner.js");
+const {fileSearchScript} = require("./file-search.js");
 const extensionManifests = require("../config/maia-extensions.json");
 
 const HOST = "127.0.0.1";
@@ -28,6 +29,11 @@ const SPOTIFY_SCOPES = [
   "user-library-modify"
 ].join(" ");
 const voiceClients = new Set();
+let browserVoiceStatus = {
+  state: "not-started",
+  error: "",
+  updatedAt: null
+};
 const processedSales = new Map();
 let voiceProcess = null;
 let speechProcess = null;
@@ -44,6 +50,8 @@ let speechHelperMinimizeProcess = null;
 let lastCpuSample = cpuSnapshot();
 let netlifySalesTimer = null;
 let netlifySalesPolling = false;
+let netlifySalesLastCheck = null;
+let netlifySalesLastError = "";
 let networkScanCache = null;
 let networkScanPromise = null;
 let networkStatusPromise = null;
@@ -651,9 +659,19 @@ function speechHelperHtml(){
     const heardEl = document.getElementById('heard');
     const startBtn = document.getElementById('start');
     let rec = null;
+    let starting = false;
     let manualStop = false;
     let restartTimer = null;
     const token = new URLSearchParams(location.search).get('token') || '';
+    async function report(state, error){
+      try{
+        await fetch('/voice/browser-status', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','X-Maia-Token':token},
+          body:JSON.stringify({state, error:error || ''})
+        });
+      }catch(err){}
+    }
     async function send(text, final){
       try{
         await fetch('/voice/browser-result', {
@@ -663,9 +681,23 @@ function speechHelperHtml(){
         });
       }catch(err){}
     }
-    function start(){
+    async function start(){
+      if(starting || (rec && rec.__maiaRunning)) return;
       if(!SR){
         statusEl.textContent = 'Web Speech indisponível neste navegador. Use Chrome ou Edge.';
+        report('unsupported', 'Web Speech unavailable');
+        return;
+      }
+      starting = true;
+      try{
+        if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+          const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+          stream.getTracks().forEach(track => track.stop());
+        }
+      }catch(err){
+        starting = false;
+        statusEl.textContent = 'Microfone bloqueado: ' + (err.name || 'permissão negada');
+        report('microphone-error', err.name || err.message || 'permission denied');
         return;
       }
       rec = new SR();
@@ -673,15 +705,26 @@ function speechHelperHtml(){
       rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 3;
-      rec.onstart = () => statusEl.textContent = 'Ouvindo. Diga Maia antes do comando.';
+      rec.onstart = () => {
+        starting = false;
+        rec.__maiaRunning = true;
+        statusEl.textContent = 'Ouvindo. Diga Maia antes do comando.';
+        report('listening');
+      };
       rec.onerror = (event) => {
+        starting = false;
+        if(rec) rec.__maiaRunning = false;
         if(event.error === 'aborted' || event.error === 'no-speech'){
           statusEl.textContent = 'Aguardando fala. Diga Maia antes do comando.';
+          report('waiting', event.error);
           return;
         }
         statusEl.textContent = 'Erro: ' + event.error;
+        report('recognition-error', event.error);
       };
       rec.onend = () => {
+        starting = false;
+        rec.__maiaRunning = false;
         if(manualStop) return;
         clearTimeout(restartTimer);
         restartTimer = setTimeout(() => { try{ rec.start(); }catch(err){} }, 1200);
@@ -695,7 +738,10 @@ function speechHelperHtml(){
           send(text, event.results[i].isFinal);
         }
       };
-      try{ rec.start(); }catch(err){}
+      try{ rec.start(); }catch(err){
+        starting = false;
+        report('start-error', err.name || err.message);
+      }
     }
     startBtn.addEventListener('click', start);
     setTimeout(start, 600);
@@ -724,6 +770,22 @@ function allowSpeechHelperMicrophone(profileDir){
   fs.writeFileSync(preferencesPath, JSON.stringify(preferences), "utf8");
 }
 
+function cleanupStaleSpeechProfiles(){
+  ensureMaiaDataDir();
+  const dataDir = maiaDataPath();
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  for(const entry of fs.readdirSync(dataDir, {withFileTypes:true})){
+    if(!entry.isDirectory() || !/^edge-voice-profile-\d+$/.test(entry.name)) continue;
+    const target = path.join(dataDir, entry.name);
+    if(target === speechHelperProfile) continue;
+    try{
+      if(fs.statSync(target).mtimeMs < cutoff) fs.rmSync(target, {recursive:true, force:true});
+    }catch(err){
+      // Perfil ainda bloqueado por um Edge antigo; será tentado novamente depois.
+    }
+  }
+}
+
 async function openSpeechHelper(){
   const url = `http://${HOST}:${PORT}/speech-helper?token=${encodeURIComponent(AUTH_TOKEN)}`;
   const candidates = [
@@ -738,8 +800,12 @@ async function openSpeechHelper(){
     if(edge){
       closeSpeechHelper();
       ensureMaiaDataDir();
+      cleanupStaleSpeechProfiles();
       const psLiteral = (value) => "'" + String(value).replace(/'/g, "''") + "'";
-      const profile = maiaDataPath("edge-voice-profile");
+      // Um Edge encerrado incorretamente pode manter o perfil bloqueado e fazer
+      // a próxima instância ignorar a nova URL/token. Cada sessão usa um perfil
+      // próprio para que um processo antigo nunca impeça o reconhecimento.
+      const profile = maiaDataPath(`edge-voice-profile-${process.pid}`);
       speechHelperProfile = profile;
       allowSpeechHelperMicrophone(profile);
       const args = [
@@ -811,7 +877,7 @@ function closeSpeechHelper(){
   const script = `
 $profile = '${escapedProfile}'
 $processIds = @(Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" -ErrorAction SilentlyContinue |
-  Where-Object { $_.CommandLine -like ('*--user-data-dir=' + $profile + '*') } |
+  Where-Object { $_.CommandLine -like '*--user-data-dir*' -and $_.CommandLine -like ('*' + $profile + '*') } |
   Select-Object -ExpandProperty ProcessId)
 ${fallbackPid}
 $processIds | Sort-Object -Unique | ForEach-Object {
@@ -830,6 +896,7 @@ $processIds | Sort-Object -Unique | ForEach-Object {
     windowsHide: true,
     timeout: 5000
   });
+  try{ fs.rmSync(profile, {recursive:true, force:true}); }catch(err){}
 }
 
 function ps(script, options = {}){
@@ -1199,8 +1266,7 @@ function configureNetlifySales(baseUrl, deviceToken){
   const token = String(deviceToken || "").trim();
   if(token.length < 32) throw new Error("MAIA_DEVICE_TOKEN invalido");
   const config = {baseUrl:url.origin, deviceToken:token, updatedAt:new Date().toISOString()};
-  ensureMaiaDataDir();
-  fs.writeFileSync(netlifySalesConfigPath(), JSON.stringify(config, null, 2), "utf8");
+  writeJsonConfig(netlifySalesConfigPath(), config);
   startNetlifySalesPolling();
   return {configured:true, baseUrl:config.baseUrl, updatedAt:config.updatedAt};
 }
@@ -1208,8 +1274,15 @@ function configureNetlifySales(baseUrl, deviceToken){
 function netlifySalesStatus(){
   const config = readNetlifySalesConfig();
   return config
-    ? {configured:true, baseUrl:config.baseUrl, polling:Boolean(netlifySalesTimer), updatedAt:config.updatedAt}
-    : {configured:false, polling:false};
+    ? {configured:true, baseUrl:config.baseUrl, polling:Boolean(netlifySalesTimer), updatedAt:config.updatedAt, lastCheck:netlifySalesLastCheck, lastError:netlifySalesLastError}
+    : {configured:false, polling:false, lastCheck:netlifySalesLastCheck, lastError:netlifySalesLastError};
+}
+
+function disconnectNetlifySales(){
+  stopNetlifySalesPolling();
+  fs.rmSync(netlifySalesConfigPath(), {force:true});
+  netlifySalesLastError = "";
+  return netlifySalesStatus();
 }
 
 async function pollNetlifySales(){
@@ -1246,7 +1319,11 @@ async function pollNetlifySales(){
       });
       if(!ack.ok) throw new Error("falha ao confirmar vendas: " + ack.status);
     }
+    netlifySalesLastCheck = new Date().toISOString();
+    netlifySalesLastError = "";
   }catch(err){
+    netlifySalesLastCheck = new Date().toISOString();
+    netlifySalesLastError = String(err.message || err);
     if(process.env.MAIA_DEBUG) console.warn("[maia:netlify] Relay indisponível:", err.message);
   }finally{
     clearTimeout(timer);
@@ -1269,24 +1346,75 @@ function stopNetlifySalesPolling(){
 function readArkamaConfig(){
   try{
     const parsed = JSON.parse(fs.readFileSync(arkamaConfigPath(), "utf8"));
-    if(parsed && parsed.webhookToken) return parsed;
+    if(parsed && parsed.webhookToken) return {
+      notifications:true,
+      sound:true,
+      voice:true,
+      ...parsed
+    };
   }catch(err){}
   ensureMaiaDataDir();
-  const config = {webhookToken: crypto.randomBytes(24).toString("hex"), createdAt: new Date().toISOString()};
-  fs.writeFileSync(arkamaConfigPath(), JSON.stringify(config, null, 2), "utf8");
+  const config = {webhookToken: crypto.randomBytes(24).toString("hex"), notifications:true, sound:true, voice:true, createdAt: new Date().toISOString()};
+  writeJsonConfig(arkamaConfigPath(), config);
   return config;
 }
 
 function arkamaWebhookStatus(){
   const config = readArkamaConfig();
+  const summary = localSalesSummary("all");
   return {
     configured: true,
     provider: "arkama",
     localUrl: `http://${HOST}:${PORT}/webhooks/arkama/${config.webhookToken}`,
     route: `/webhooks/arkama/${config.webhookToken}`,
+    webhookToken: config.webhookToken,
     logFile: arkamaSalesLogPath(),
-    acceptedEvents: ["ORDER_PAID", "ORDER_STATUS_CHANGED + PAID"]
+    acceptedEvents: ["ORDER_PAID", "ORDER_STATUS_CHANGED + PAID"],
+    notifications:config.notifications !== false,
+    sound:config.sound !== false,
+    voice:config.voice !== false,
+    salesCount:summary.count,
+    updatedAt:config.updatedAt || config.createdAt
   };
+}
+
+function configureArkama(payload = {}){
+  const current = readArkamaConfig();
+  const config = {
+    ...current,
+    notifications:payload.notifications !== false,
+    sound:payload.sound !== false,
+    voice:payload.voice !== false,
+    updatedAt:new Date().toISOString()
+  };
+  writeJsonConfig(arkamaConfigPath(), config);
+  return arkamaWebhookStatus();
+}
+
+function regenerateArkamaToken(){
+  const current = readArkamaConfig();
+  writeJsonConfig(arkamaConfigPath(), {...current, webhookToken:crypto.randomBytes(24).toString("hex"), updatedAt:new Date().toISOString()});
+  return arkamaWebhookStatus();
+}
+
+function recentArkamaSales(limit = 30){
+  const entries = [];
+  try{
+    for(const line of fs.readFileSync(arkamaSalesLogPath(), "utf8").split(/\r?\n/).filter(Boolean)){
+      try{
+        const parsed = JSON.parse(line);
+        if(parsed && parsed.sale) entries.push(parsed.sale);
+      }catch(err){}
+    }
+  }catch(err){}
+  return entries.reverse().slice(0, Math.max(1, Math.min(100, Number(limit) || 30)));
+}
+
+function testArkamaNotification(){
+  const config = readArkamaConfig();
+  const sale = {approved:true, id:"MAIA-TEST-" + Date.now(), event:"ORDER_PAID", status:"PAID", amount:49.9, currency:"BRL", product:"Venda de teste", customerName:"Cliente de teste", receivedAt:new Date().toISOString(), test:true};
+  if(config.notifications !== false) broadcastVoice("sale-approved", {...sale, notificationSettings:{sound:config.sound !== false, voice:config.voice !== false}});
+  return {sent:config.notifications !== false, sale};
 }
 
 function firstValue(...values){
@@ -1328,7 +1456,10 @@ function registerApprovedSale(sale, rawPayload){
   processedSales.set(sale.id, now);
   ensureMaiaDataDir();
   fs.appendFileSync(arkamaSalesLogPath(), JSON.stringify({sale, payload:rawPayload}) + "\n", "utf8");
-  broadcastVoice("sale-approved", sale);
+  const config = readArkamaConfig();
+  if(config.notifications !== false){
+    broadcastVoice("sale-approved", {...sale, notificationSettings:{sound:config.sound !== false, voice:config.voice !== false}});
+  }
   return true;
 }
 
@@ -2265,19 +2396,26 @@ if('${cleanQuery.replace(/'/g, "''")}'){
 
 async function integrationStatus(){
   let installed = [];
+  const warnings = [];
   try{
     const result = await ps(`Get-StartApps | Where-Object { $_.Name -match 'Spotify|YouTube|Prime Video|Netflix|Disney|Max|Globoplay|Paramount|Crunchyroll|Plex' } | Select-Object Name,AppID | ConvertTo-Json -Compress`);
     const raw = String(result && result.stdout || "").trim();
     if(raw) installed = [].concat(JSON.parse(raw));
-  }catch(err){}
+  }catch(err){
+    warnings.push({source:"applications", message:String(err.message || err)});
+  }
   let spotify = {connected:false};
-  try{ spotify = await spotifyAuthStatus(); }catch(err){}
+  try{ spotify = await spotifyAuthStatus(); }catch(err){
+    warnings.push({source:"spotify", message:String(err.message || err)});
+  }
   return {
     spotify,
     installed:installed.map(item => ({name:item.Name, appId:item.AppID})),
     extensions:extensionManifests,
     bridge:true,
-    speechHelper:Boolean(voiceProcess && !voiceProcess.killed)
+    speechHelper:Boolean(speechHelperPid),
+    browserVoice:browserVoiceStatus,
+    warnings
   };
 }
 
@@ -2426,23 +2564,6 @@ function openLatestDownload(){
 function clipboardWriteScript(text){
   const safe = String(text || "").replace(/'/g, "''");
   return `Set-Clipboard -Value '${safe}'`;
-}
-
-function fileSearchScript(query){
-  const safe = String(query || "").replace(/'/g, "''");
-  return `
-$roots = @("$env:USERPROFILE\\Desktop", "$env:USERPROFILE\\Documents", "$env:USERPROFILE\\Downloads")
-$found = @()
-foreach($root in $roots){
-  if(Test-Path $root){
-    $found += Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
-      Where-Object { $_.Name -like "*${safe}*" } |
-      Select-Object -First 20 FullName,Name,Length,LastWriteTime,Extension
-  }
-}
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-@($found | Sort-Object LastWriteTime -Descending | Select-Object -First 30) | ConvertTo-Json -Compress
-`;
 }
 
 function safeUserFile(value){
@@ -2626,10 +2747,37 @@ if($methods){
 `;
 }
 
+async function enrichedBrainThink(prompt, options = {}){
+  const text=String(prompt||"").trim();
+  const normalized=text.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  if(/\b(noticias|noticias de hoje|aconteceu hoje|manchetes)\b/.test(normalized)){
+    const items=await newsToday();
+    if(items.length){
+      return {reply:"Notícias atuais: "+items.slice(0,3).map(item=>item.title+(item.source?" — "+item.source:"")).join(". ")+".",topic:"noticias",sources:items.slice(0,3).map(item=>item.link).filter(Boolean)};
+    }
+  }
+  if(/\b(que dia e hoje|data de hoje|horas agora|que horas sao)\b/.test(normalized)){
+    return {reply:"Agora são "+new Date().toLocaleString("pt-BR",{dateStyle:"full",timeStyle:"short"})+".",topic:"data-hora",sources:[]};
+  }
+  const subjectMatch=text.match(/^(?:quem (?:é|e)|o que (?:é|e)|explique|me fale sobre|conte sobre)\s+(.+?)[?!.]*$/i);
+  if(subjectMatch&&global.fetch){
+    try{
+      const subject=subjectMatch[1].trim().slice(0,120);
+      const response=await fetchJson("https://pt.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(subject),{headers:{"accept":"application/json","user-agent":"Maia-Desktop/5.3"}},8000);
+      if(response&&response.extract&&!response.type?.includes("disambiguation")){
+        return {reply:String(response.extract).slice(0,1200),topic:"consulta-online",sources:[response.content_urls?.desktop?.page].filter(Boolean)};
+      }
+    }catch(err){
+      if(process.env.MAIA_DEBUG)console.warn("[maia:brain] Consulta online indisponível:",err.message);
+    }
+  }
+  return megaBrain.think(text,options);
+}
+
 async function runAction(action, payload){
   switch(action){
     case "brain.think":
-      return megaBrain.think(payload && payload.prompt, {
+      return enrichedBrainThink(payload && payload.prompt, {
         model: payload && payload.model,
         timeoutMs: 120000
       });
@@ -2643,6 +2791,14 @@ async function runAction(action, payload){
       return megaBrain.warmup();
     case "integration.arkama.status":
       return arkamaWebhookStatus();
+    case "integration.arkama.configure":
+      return configureArkama(payload || {});
+    case "integration.arkama.regenerateToken":
+      return regenerateArkamaToken();
+    case "integration.arkama.test":
+      return testArkamaNotification();
+    case "integration.arkama.sales":
+      return recentArkamaSales(payload && payload.limit);
     case "integration.status":
       return integrationStatus();
     case "integration.homeAssistant.configure":
@@ -2668,6 +2824,8 @@ async function runAction(action, payload){
     case "integration.netlify.poll":
       await pollNetlifySales();
       return netlifySalesStatus();
+    case "integration.netlify.disconnect":
+      return disconnectNetlifySales();
     case "sales.localSummary":
       return localSalesSummary(payload && payload.period);
     case "spotify.open":
@@ -2742,7 +2900,7 @@ async function runAction(action, payload){
     case "window.organize":
       return ps(windowOrganizeScript());
     case "file.search": {
-      const result = await ps(fileSearchScript(payload && payload.query));
+      const result = await ps(fileSearchScript(payload && payload.query, payload && payload.fileType));
       const parsed = JSON.parse(String(result && result.stdout || "[]"));
       return {items:Array.isArray(parsed)?parsed:parsed?[parsed]:[]};
     }
@@ -2953,6 +3111,10 @@ const server = http.createServer(async (req, res) => {
         "brain.status",
         "brain.warmup",
         "integration.arkama.status",
+        "integration.arkama.configure",
+        "integration.arkama.regenerateToken",
+        "integration.arkama.test",
+        "integration.arkama.sales",
         "integration.status",
         "integration.homeAssistant.configure",
         "integration.homeAssistant.status",
@@ -2965,6 +3127,7 @@ const server = http.createServer(async (req, res) => {
         "integration.netlify.configure",
         "integration.netlify.status",
         "integration.netlify.poll",
+        "integration.netlify.disconnect",
         "sales.localSummary",
         "voice.native"
       ]
@@ -3011,6 +3174,27 @@ const server = http.createServer(async (req, res) => {
     }catch(err){
       send(res, 400, {ok: false, error: err.message}, req);
     }
+    return;
+  }
+
+  if(req.method === "POST" && requestUrl.pathname === "/voice/browser-status"){
+    try{
+      const body = await readBody(req);
+      browserVoiceStatus = {
+        state: String(body.state || "unknown"),
+        error: String(body.error || ""),
+        updatedAt: new Date().toISOString()
+      };
+      broadcastVoice("browser-status", browserVoiceStatus);
+      send(res, 200, {ok: true}, req);
+    }catch(err){
+      send(res, 400, {ok: false, error: err.message}, req);
+    }
+    return;
+  }
+
+  if(req.method === "GET" && requestUrl.pathname === "/voice/browser-status"){
+    send(res, 200, {ok: true, voice: browserVoiceStatus}, req);
     return;
   }
 

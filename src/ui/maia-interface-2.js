@@ -327,6 +327,18 @@
       if(output)output.textContent=message.text||"Ação concluída.";
       finishHorizonActions20();
     }
+    if(message.type==="maia-arkama-state"){
+      const data=message.data||{},status=data.status||{},relay=data.relay||{};
+      if($("arkamaToken20"))$("arkamaToken20").value=status.webhookToken||"";
+      if($("arkamaUrl20"))$("arkamaUrl20").value=status.localUrl||"";
+      if($("arkamaRelay20")&&document.activeElement!==$("arkamaRelay20"))$("arkamaRelay20").value=relay.baseUrl||"";
+      if($("arkamaDeviceToken20"))$("arkamaDeviceToken20").value="";
+      if($("arkamaNotifications20"))$("arkamaNotifications20").checked=status.notifications!==false;
+      if($("arkamaSound20"))$("arkamaSound20").checked=status.sound!==false;
+      if($("arkamaVoice20"))$("arkamaVoice20").checked=status.voice!==false;
+      if($("arkamaOutput20"))$("arkamaOutput20").textContent=message.text||"Integração Arkama atualizada.";
+      finishHorizonActions20();
+    }
     if(message.type==="maia-interface-files")renderFiles20(message.items,message.message);
     if(message.type==="maia-interface-processes")renderProcesses20(message.items);
     if(message.type==="maia-interface-media")renderMedia20(message.data);
@@ -354,7 +366,7 @@
     syncChatVisibility20();
   });
   syncChatVisibility20();
-  $("fileSearchForm20").addEventListener("submit",(event)=>{event.preventDefault();const query=$("fileSearchInput20").value.trim();if(!query)return;$("fileStatus20").textContent="Buscando arquivos…";parentWindow.postMessage({type:"maia-interface-action",action:"file.search",query},"*");});
+  $("fileSearchForm20").addEventListener("submit",(event)=>{event.preventDefault();const query=$("fileSearchInput20").value.trim();if(!query)return;$("fileStatus20").textContent="Buscando arquivos…";parentWindow.postMessage({type:"maia-interface-action",action:"file.search",query,fileType:$("fileType20").value},"*");});
   $("downloadsRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-action",action:"downloads.list"},"*"));
   $("systemRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-action",action:"system.refresh"},"*"));
   document.querySelectorAll("[data-media-control]").forEach((button)=>button.addEventListener("click",()=>{
@@ -366,7 +378,7 @@
     $("mediaFallback20").hidden=false;
   });
   document.querySelector(".file-list").addEventListener("click",(event)=>{const open=event.target.closest("[data-file-open]"),folder=event.target.closest("[data-file-folder]");if(open)parentWindow.postMessage({type:"maia-interface-action",action:"file.open",path:open.dataset.fileOpen},"*");if(folder)parentWindow.postMessage({type:"maia-interface-action",action:"file.openFolder",path:folder.dataset.fileFolder},"*");});
-  $("fileType20").addEventListener("change",()=>{const query=$("fileSearchInput20").value.trim();parentWindow.postMessage({type:"maia-interface-action",action:query?"file.search":"downloads.list",query},"*");});
+  $("fileType20").addEventListener("change",()=>{const query=$("fileSearchInput20").value.trim();parentWindow.postMessage({type:"maia-interface-action",action:query?"file.search":"downloads.list",query,fileType:$("fileType20").value},"*");});
   $("toggleCompact").addEventListener("change", (event) => {
     $("app").classList.toggle("compact", event.target.checked);
     localStorage.setItem("Maia.horizon.compact",event.target.checked?"1":"0");
@@ -490,8 +502,44 @@
     section.appendChild(buttons);
     $("view-config").appendChild(section);
   }
-  addForm("Perfil e preferências",[["brainOwnerName","Seu nome"],["brainCity","Cidade"],["brainTreatment","Tratamento","select"],["brainSpeechMode","Personalidade","select"],["brainPresence","Presença","select"],["brainVolume","Volume","number"],["brainWakeWords","Palavras de ativação"]],[["Salvar perfil","horizonProfileApply"]]);
+  addForm("Perfil e dados",[["brainOwnerName","Seu nome"],["brainCity","Cidade"],["brainTreatment","Tratamento","select"],["brainSpeechMode","Personalidade","select"],["brainPresence","Presença","select"],["brainVolume","Volume","number"],["brainWakeWords","Palavras de ativação"],["brainHistoryPreference","Histórico local","select"],["brainDiagnosticsPreference","Diagnóstico local","select"]],[["Salvar perfil e dados","horizonProfileApply"]]);
   addForm("Home Assistant",[["brainHaUrl","Endereço"],["brainHaToken","Token","password"],["brainHaEntity","Entidade","select"],["brainHaAction","Ação","select"]],[["Conectar","brainHaConnect"],["Atualizar dispositivos","brainHaRefresh"],["Executar","brainHaRun"]]);
+  const arkamaCenter=document.createElement("section");
+  arkamaCenter.className="horizon-form arkama-center20";
+  arkamaCenter.innerHTML=`
+    <div class="panel-title">Arkama • vendas aprovadas</div>
+    <label class="horizon-field"><span>TOKEN DO WEBHOOK</span><span class="arkama-secret20"><input id="arkamaToken20" type="password" readonly><button type="button" id="arkamaReveal20">MOSTRAR</button></span></label>
+    <label class="horizon-field"><span>URL DO WEBHOOK LOCAL</span><input id="arkamaUrl20" readonly></label>
+    <label class="horizon-field"><span>RELAY HTTPS</span><input id="arkamaRelay20" type="url" placeholder="https://seu-site.netlify.app"></label>
+    <label class="horizon-field"><span>TOKEN DO DISPOSITIVO</span><input id="arkamaDeviceToken20" type="password" autocomplete="off" placeholder="MAIA_DEVICE_TOKEN"></label>
+    <label class="horizon-field"><span>PERÍODO DO RESUMO</span><select id="arkamaPeriod20"><option value="today">Hoje</option><option value="week">Semana</option><option value="month" selected>Mês</option><option value="previous_month">Mês anterior</option><option value="all">Tudo</option></select></label>
+    <div class="arkama-options20"><label><input id="arkamaNotifications20" type="checkbox" checked> Notificações</label><label><input id="arkamaSound20" type="checkbox" checked> Som</label><label><input id="arkamaVoice20" type="checkbox" checked> Voz</label></div>
+    <div class="horizon-actions">
+      <button type="button" data-arkama-action="save">SALVAR AVISOS</button><button type="button" data-arkama-action="connect">CONECTAR RELAY</button>
+      <button type="button" data-arkama-action="status">VERIFICAR STATUS</button><button type="button" data-arkama-action="test">TESTAR NOTIFICAÇÃO</button>
+      <button type="button" data-arkama-action="summary">VER RESUMO</button><button type="button" data-arkama-action="history">ÚLTIMAS VENDAS</button>
+      <button type="button" data-arkama-action="poll">BUSCAR AGORA</button><button type="button" data-arkama-action="copy">COPIAR WEBHOOK</button>
+      <button type="button" data-arkama-action="regenerate">GERAR NOVO TOKEN</button><button type="button" data-arkama-action="disconnect">DESCONECTAR RELAY</button>
+    </div>
+    <div class="terminal-log arkama-output20" id="arkamaOutput20">Carregando integração Arkama…</div>`;
+  $("view-config").appendChild(arkamaCenter);
+  const arkamaStyle=document.createElement("style");
+  arkamaStyle.textContent=".arkama-center20{padding:15px;border:1px solid color-mix(in srgb,var(--h-primary) 24%,transparent);border-radius:10px;background:color-mix(in srgb,var(--h-surface) 28%,transparent)}.arkama-secret20{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}.arkama-secret20 button{border:1px solid color-mix(in srgb,var(--h-primary) 30%,transparent);border-radius:6px;background:transparent;color:var(--h-primary);font-size:8px;padding:0 9px}.arkama-options20{display:flex;align-items:center;flex-wrap:wrap;gap:12px;color:var(--h-soft);font-size:10px}.arkama-options20 label{display:flex;align-items:center;gap:6px}.arkama-output20{grid-column:1/-1;white-space:pre-wrap;min-height:74px;max-height:240px;overflow:auto}";
+  document.head.appendChild(arkamaStyle);
+  $("arkamaReveal20").addEventListener("click",()=>{const input=$("arkamaToken20"),show=input.type==="password";input.type=show?"text":"password";$("arkamaReveal20").textContent=show?"OCULTAR":"MOSTRAR";});
+  arkamaCenter.addEventListener("click",async(event)=>{
+    const button=event.target.closest("[data-arkama-action]");
+    if(!button)return;
+    const action=button.dataset.arkamaAction;
+    if(action==="copy"){
+      try{await navigator.clipboard.writeText($("arkamaUrl20").value);$("arkamaOutput20").textContent="URL do webhook copiada.";}catch(err){$("arkamaOutput20").textContent="Copie manualmente:\n"+$("arkamaUrl20").value;}
+      return;
+    }
+    if(action==="regenerate"&&!confirm("Gerar um novo token? O webhook atual deixará de funcionar."))return;
+    if(action==="disconnect"&&!confirm("Desconectar o relay externo? O webhook local continuará ativo."))return;
+    setActionBusy20(button,true);
+    parentWindow.postMessage({type:"maia-arkama-action",action,values:{relayUrl:$("arkamaRelay20").value,deviceToken:$("arkamaDeviceToken20").value,period:$("arkamaPeriod20").value,notifications:$("arkamaNotifications20").checked,sound:$("arkamaSound20").checked,voice:$("arkamaVoice20").checked}},"*");
+  });
   addForm("Clima e trânsito",[["brainMobilityCity","Cidade"],["brainTrafficOrigin","Origem"],["brainTrafficKey","Google Routes","password"],["brainTrafficDestination","Destino"]],[["Salvar","brainMobilitySave"],["Ver clima","brainWeatherTest"],["Ver trânsito","brainTrafficCheck"]]);
   addForm("Aparência",[["brainTheme","Tema","select"],["brainAutoTheme","Tema automático","select"]],[["Prévia deste tema","brainVisualPreview"],["Aplicar tema","brainThemeApply"],["Aplicar automático","brainAutoThemeApply"]]);
   addForm("Voz e microfone",[["brainVoiceRate","Velocidade da voz","number"],["brainMicSensitivity","Sensibilidade do microfone","number"]],[["Salvar velocidade","brainVoiceApply"],["Aplicar sensibilidade","brainMicApply"]]);
@@ -644,7 +692,7 @@
   function categoryForTitle(text){
     const value=String(text||"").toLowerCase();
     if(value.includes("perfil"))return"perfil";
-    if(value.includes("home assistant")||value.includes("clima")||value.includes("integra"))return"integracoes";
+    if(value.includes("home assistant")||value.includes("arkama")||value.includes("clima")||value.includes("integra"))return"integracoes";
     if(value.includes("connect"))return"connect";
     if(value.includes("automa")||value.includes("rotina")||value.includes("comando"))return"automacao";
     if(value.includes("apar")||value.includes("desempenho")||value.includes("voz")||value.includes("microfone"))return"visual";
