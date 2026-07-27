@@ -1316,7 +1316,7 @@
 
   async function runRoutine20(commands, label){
     const list = Array.isArray(commands) ? commands : String(commands || "").split(";");
-    const clean = list.map(item => String(item).trim()).filter(Boolean).slice(0, 8);
+    const clean = list.map(item => String(item).trim()).filter(Boolean).slice(0, 12);
     if(!clean.length){ if(brainOutput) brainOutput.textContent = "Rotina vazia."; return; }
     if(brainOutput) brainOutput.textContent = "Executando " + (label || "rotina") + ":\n" + clean.join("\n");
     setBrainPanel(false);
@@ -1469,12 +1469,14 @@
     });
     document.getElementById("brainVisualPreview").addEventListener("click", async () => {
       const original = state.preferences.theme || "classic";
-      for(const theme of [...baseThemeIds20, ...Object.keys(newThemeDefinitions20)]){
-        applyTheme20(theme);
-        await new Promise(resolve => setTimeout(resolve, 450));
-      }
+      const selected = brainTheme.value || original;
+      applyTheme20(selected);
+      brainOutput.textContent = selected === original
+        ? "Este tema já está ativo."
+        : "Prévia temporária do tema selecionado. O tema atual será restaurado em 4 segundos.";
+      if(selected !== original) await new Promise(resolve => setTimeout(resolve, 4000));
       applyTheme20(original);
-      brainOutput.textContent = "Prévia concluída. Tema anterior restaurado.";
+      if(selected !== original) brainOutput.textContent = "Prévia concluída. Tema anterior restaurado.";
     });
     document.getElementById("brainVoiceApply").addEventListener("click", () => {
       state.preferences.voiceRate = Math.max(60, Math.min(140, Number(brainVoiceRate.value) || 100));
@@ -4938,7 +4940,7 @@
   async function processCommand(command){
     if(state.commandInFlight){
       setHud("AGUARDE O COMANDO ATUAL", "speaking");
-      return;
+      return {ok:false,busy:true,tasks:[]};
     }
     state.commandInFlight = true;
     state.diagnostics.corrected = String(command || "");
@@ -4948,8 +4950,9 @@
     setCore("KERNEL ATIVO");
     setHud("PROCESSANDO", "speaking");
     try{
-      await MaiaKernel.run(command);
+      const tasks = await MaiaKernel.run(command);
       state.diagnostics.status = "concluído";
+      return {ok:true,tasks};
     }catch(err){
       state.diagnostics.status = "erro: " + String(err && err.message || err || "desconhecido").slice(0, 160);
       console.error("Falha no comando Maia:", err);
@@ -4958,6 +4961,7 @@
         "Encontrei um obstáculo nessa operação. Minha conexão pode estar indisponível.",
         "Essa eu não consegui concluir. Se tentar novamente, acompanho desde o início."
       ]));
+      return {ok:false,error:String(err && err.message || err || "erro desconhecido"),tasks:[]};
     }finally{
       localStorage.setItem("Maia.voice.diagnostics", JSON.stringify(state.diagnostics));
       state.commandInFlight = false;
@@ -5257,14 +5261,15 @@
   function postModern20(message){
     if(maiaInterfaceFrame&&maiaInterfaceFrame.contentWindow)maiaInterfaceFrame.contentWindow.postMessage(message,"*");
   }
-  const horizonFieldIds20=new Set(["brainOwnerName","brainCity","brainTreatment","brainSpeechMode","brainPresence","brainVolume","brainWakeWords","brainHaUrl","brainHaToken","brainHaEntity","brainHaAction","brainMobilityCity","brainTrafficOrigin","brainTrafficKey","brainTrafficDestination","brainTheme","brainQuality","brainIntensity","brainAutoTheme","brainRoutineName","brainRoutine","brainRoutineSaved","brainClockType","brainClockWhen","brainClockMessage","brainExtensionSelect","brainExtensionFilter","brainExtensionSearch"]);
-  const horizonButtonIds20=new Set(["brainTreatmentApply","brainHaConnect","brainHaRefresh","brainHaStatus","brainHaRun","brainWeatherTest","brainMobilitySave","brainTrafficCheck","brainConnectEnable","brainConnectRefresh","brainConnectCopy","brainConnectForget","brainConnectDisable","brainThemeApply","brainQualityApply","brainIntensityApply","brainAutoThemeApply","brainRoutineSave","brainRoutineRun","brainRoutineDelete","brainClockAdd","brainClockRefresh","brainWindowsClockOpen","brainExtensionCommands","brainExtensionToggle","brainMemoryView","brainHistoryView","brainBackupExport","brainBackupImport","brainPrivacyView","brainDiagnostics","brainUpdateCheck","brainPerformanceMode","brainVisualPreview","brainIntegrationStatus","brainTestAll"]);
+  const horizonFieldIds20=new Set(["brainOwnerName","brainCity","brainTreatment","brainSpeechMode","brainPresence","brainVolume","brainWakeWords","brainHaUrl","brainHaToken","brainHaEntity","brainHaAction","brainMobilityCity","brainTrafficOrigin","brainTrafficKey","brainTrafficDestination","brainTheme","brainQuality","brainIntensity","brainAutoTheme","brainVoiceRate","brainMicSensitivity","brainClockType","brainClockWhen","brainClockMessage","brainExtensionSelect","brainExtensionFilter","brainExtensionSearch"]);
+  const horizonButtonIds20=new Set(["brainTreatmentApply","brainHaConnect","brainHaRefresh","brainHaStatus","brainHaRun","brainWeatherTest","brainMobilitySave","brainTrafficCheck","brainConnectEnable","brainConnectRefresh","brainConnectCopy","brainConnectForget","brainConnectDisable","brainThemeApply","brainQualityApply","brainIntensityApply","brainAutoThemeApply","brainVoiceApply","brainMicApply","brainClockAdd","brainClockRefresh","brainWindowsClockOpen","brainExtensionCommands","brainExtensionToggle","brainMemoryView","brainHistoryView","brainBackupExport","brainBackupImport","brainPrivacyView","brainDiagnostics","brainUpdateCheck","brainPerformanceMode","brainVisualPreview","brainIntegrationStatus","brainTestAll"]);
   function horizonControlSnapshot20(){
     const fields={};
     horizonFieldIds20.forEach((id)=>{
       const node=document.getElementById(id);
       if(!node)return;
-      fields[id]={value:node.value||"",options:node.tagName==="SELECT"?Array.from(node.options).map((option)=>({value:option.value,label:option.textContent||option.value})):[]};
+      const liveValues={brainVoiceRate:state.preferences.voiceRate||100,brainMicSensitivity:state.preferences.micSensitivity||55};
+      fields[id]={value:String(liveValues[id]??node.value??""),options:node.tagName==="SELECT"?Array.from(node.options).map((option)=>({value:option.value,label:option.textContent||option.value})):[]};
     });
     const extensions=extensionCatalog20.filter((extension)=>extension.functional!==false).map((extension)=>({
       id:extension.id,
@@ -5277,7 +5282,35 @@
       commands:Array.isArray(extension.commands)?extension.commands:[],
       permissions:Array.isArray(extension.permissions)?extension.permissions:[]
     }));
-    return {fields,extensions,preferences:{silentMode:Boolean(state.preferences.silentMode)},status:{connect:document.getElementById("brainConnectStatus")?.textContent||"",home:document.getElementById("brainHaOutput")?.textContent||"",mobility:document.getElementById("brainMobilityOutput")?.textContent||"",clock:document.getElementById("brainClockList")?.textContent||"",general:brainOutput?.textContent||""}};
+    const commandCatalog=[...new Set([
+      ...MaiaKernel.commandBank.flatMap(item=>Array.isArray(item.synonyms)?item.synonyms:[]),
+      ...extensions.flatMap(item=>item.commands||[])
+    ])].filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR")).slice(0,300);
+    return {
+      fields,extensions,
+      routines:{saved:{...(state.routines.saved||{})}},
+      commandHistory:state.commandHistory.slice(0,50),
+      commandCatalog,
+      preferences:{silentMode:Boolean(state.preferences.silentMode)},
+      status:{connect:document.getElementById("brainConnectStatus")?.textContent||"",home:document.getElementById("brainHaOutput")?.textContent||"",mobility:document.getElementById("brainMobilityOutput")?.textContent||"",clock:document.getElementById("brainClockList")?.textContent||"",general:brainOutput?.textContent||""}
+    };
+  }
+  function formatModernCommandResult20(command,result){
+    if(!result||!result.ok)return result&&result.busy?"A Maia já está executando outro comando.":`Não consegui concluir: ${result&&result.error||"erro desconhecido"}`;
+    const tasks=Array.isArray(result.tasks)?result.tasks:[];
+    if(!tasks.length)return "Comando concluído.";
+    const labels={
+      "volume.set":"Volume ajustado","system.open":"Aplicativo aberto","system.close":"Aplicativo fechado",
+      "spotify.play":"Reprodução solicitada no Spotify","spotify.pause":"Spotify pausado","spotify.resume":"Spotify retomado",
+      "media.next":"Próxima mídia selecionada","media.previous":"Mídia anterior selecionada",
+      "theme.set":"Tema aplicado","weather.current":"Previsão consultada","traffic.route":"Rota consultada",
+      "reminder.create":"Lembrete criado","alarm.create":"Alarme criado","timer.create":"Temporizador criado"
+    };
+    return tasks.map(task=>{
+      const label=labels[task.intent]||String(task.intent||"ação").replace(/[._]/g," ");
+      const detail=task.program||task.query||task.name||task.level;
+      return "✓ "+label+(detail!==undefined&&detail!==""?": "+detail:"");
+    }).join("\n");
   }
   async function handleModernCommand20(message){
     const text=String(message.text||"").trim();
@@ -5289,8 +5322,8 @@
         const brain=response&&response.result;
         postModern20({type:"maia-interface-result",terminal:Boolean(message.terminal),text:brain&&brain.reply?brain.reply:"Não consegui formar uma resposta válida."});
       }else{
-        await processCommand(text);
-        postModern20({type:"maia-interface-result",terminal:Boolean(message.terminal),text:"Comando processado pelo núcleo da Maia."});
+        const result=await processCommand(text);
+        postModern20({type:"maia-interface-result",terminal:Boolean(message.terminal),text:formatModernCommandResult20(text,result)});
       }
     }catch(err){
       postModern20({type:"maia-interface-result",terminal:Boolean(message.terminal),text:"Não consegui concluir: "+String(err&&err.message||err||"erro desconhecido")});
@@ -5308,6 +5341,33 @@
       refreshConnect20();
     }
     if(message.type==="maia-interface-command")handleModernCommand20(message);
+    if(message.type==="maia-routine-action"){
+      (async()=>{
+        const action=String(message.action||""),name=String(message.name||"").trim().slice(0,60);
+        const originalName=String(message.originalName||"").trim();
+        const commands=(Array.isArray(message.commands)?message.commands:[]).map(item=>String(item||"").trim()).filter(Boolean).slice(0,12);
+        if(action==="save"){
+          if(!name||!commands.length){postModern20({type:"maia-interface-control-result",text:"Informe o nome e adicione pelo menos uma ação."});return;}
+          if(originalName&&originalName!==name)delete state.routines.saved[originalName];
+          state.routines.saved[name]=commands;saveMemory();renderSavedRoutines20();
+          postModern20({type:"maia-interface-control-result",text:`Rotina “${name}” salva com ${commands.length} ação(ões).`});
+        }else if(action==="delete"){
+          const deleteName=originalName||name;
+          if(deleteName&&state.routines.saved[deleteName]){delete state.routines.saved[deleteName];saveMemory();renderSavedRoutines20();}
+          postModern20({type:"maia-interface-control-result",text:deleteName?`Rotina “${deleteName}” removida.`:"Selecione uma rotina."});
+        }else if(action==="run"){
+          await runRoutine20(commands,name||"rotina");
+          postModern20({type:"maia-interface-control-result",text:`Rotina “${name||"personalizada"}” concluída.`});
+        }
+        postModern20({type:"maia-interface-snapshot",data:horizonControlSnapshot20()});
+      })();
+    }
+    if(message.type==="maia-history-repeat")handleModernCommand20({text:String(message.text||""),terminal:false});
+    if(message.type==="maia-history-clear"){
+      state.commandHistory=[];saveMemory();
+      postModern20({type:"maia-interface-snapshot",data:horizonControlSnapshot20()});
+      postModern20({type:"maia-interface-control-result",text:"Histórico de comandos limpo."});
+    }
     if(message.type==="maia-extension-toggle"){
       const id=String(message.id||"");
       const extension=extensionCatalog20.find((item)=>item.id===id&&item.functional!==false);
@@ -5324,7 +5384,7 @@
       }
     }
     if(message.type==="maia-interface-control"){
-      const allowed=new Set(["brainPerformanceMode","brainVisualPreview","brainIntegrationStatus","brainTestAll","brainHaStatus","brainWeatherTest","brainTrafficCheck","brainConnectEnable","brainConnectRefresh","brainConnectCopy","brainConnectDisable","brainWindowsClockOpen","brainMemoryView","brainHistoryView","brainBackupExport","brainPrivacyView","brainDiagnostics","brainUpdateCheck","brainExtensionCommands","brainExtensionToggle","brainSilentToggle"]);
+      const allowed=new Set(["brainPerformanceMode","brainVisualPreview","brainIntegrationStatus","brainTestAll","brainHaStatus","brainWeatherTest","brainTrafficCheck","brainConnectEnable","brainConnectRefresh","brainConnectCopy","brainConnectForget","brainConnectDisable","brainWindowsClockOpen","brainMemoryView","brainHistoryView","brainBackupExport","brainPrivacyView","brainDiagnostics","brainUpdateCheck","brainExtensionCommands","brainExtensionToggle","brainSilentToggle"]);
       const id=String(message.id||"");
       const connectActions={
         brainConnectEnable:connectStatus20&&connectStatus20.enabled?"connect.rotateCode":"connect.enable",

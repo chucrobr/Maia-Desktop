@@ -1,5 +1,16 @@
 # Novidades da Maia
 
+## 5.3.0-beta.9 — Rotinas, comandos e Connect
+
+- Editor visual de rotinas com catálogo de ações, comandos personalizados, reordenação, edição, execução e exclusão.
+- Catálogo pesquisável de comandos e histórico com repetição e limpeza.
+- Resultado real das ações exibido no chat da Horizon.
+- Controles de velocidade da voz e sensibilidade do microfone adicionados.
+- Prévia de tema limitada ao tema selecionado, sem percorrer os demais.
+- Maia Connect Horizon redesenhado com estados de processamento, QR, pareamento e botões confiáveis.
+- Botão reproduzir/pausar do Connect redesenhado sem emoji colorido.
+- Reaplicações idênticas de tema ignoradas para eliminar piscadas na interface.
+
 ## 5.3.0-beta.8 — Capa corrigida
 
 - Placeholder musical agora desaparece obrigatoriamente quando a capa real do Spotify é carregada.

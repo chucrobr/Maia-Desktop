@@ -2,7 +2,7 @@
   "use strict";
   const parentWindow = window.parent;
   const $ = (id) => document.getElementById(id);
-  const state = {view:"inicio", pending:false, pendingTimer:null, stats:{cpu:0,ram:0,gpu:0,energia:100}, extensions:[], selectedExtension:"", theme:null, media:null, connect:null, chatHidden:localStorage.getItem("Maia.horizon.chatHidden")==="1"};
+  const state = {view:"inicio", pending:false, pendingTimer:null, stats:{cpu:0,ram:0,gpu:0,energia:100}, extensions:[], selectedExtension:"", theme:null, media:null, connect:null, connectBusy:false, routines:{}, routineDraft:[], routineOriginalName:"", commandCatalog:[], commandHistory:[], chatHidden:localStorage.getItem("Maia.horizon.chatHidden")==="1"};
   const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
   const pad = (value) => String(value).padStart(2, "0");
   const days = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
@@ -168,6 +168,7 @@
   }
   function renderConnect20(status){
     state.connect=status||{enabled:false};
+    state.connectBusy=false;
     const active=Boolean(state.connect.enabled);
     const center=$("connectCenter20");
     if(!center)return;
@@ -179,6 +180,7 @@
     $("connectDevices20").textContent=String(state.connect.pairedDevices||0);
     $("connectExpiry20").textContent=active&&state.connect.pairExpiresAt?new Date(state.connect.pairExpiresAt).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"—";
     $("connectToggle20").textContent=active?"RENOVAR CÓDIGOS":"ATIVAR CONNECT";
+    document.querySelectorAll("#connectCenter20 button").forEach((button)=>button.classList.remove("busy"));
     const qr=$("connectQr20"),empty=$("connectQrEmpty20");
     if(active&&state.connect.qrDataUrl){
       qr.src=state.connect.qrDataUrl;
@@ -194,6 +196,21 @@
     error.textContent=state.connect.error||state.connect.qrError||"";
     $("connectDisable20").disabled=!active;
     $("connectCopy20").disabled=!active;
+    $("connectForget20").disabled=!active||!(state.connect.pairedDevices>0);
+  }
+  function runConnectControl20(id,button){
+    if(state.connectBusy)return;
+    state.connectBusy=true;
+    document.querySelectorAll("#connectCenter20 button").forEach((item)=>item.disabled=true);
+    if(button){button.classList.add("busy");button.dataset.label=button.textContent;button.textContent="PROCESSANDO…";}
+    parentWindow.postMessage({type:"maia-interface-control",id},"*");
+    setTimeout(()=>{
+      if(!state.connectBusy)return;
+      state.connectBusy=false;
+      if(button){button.classList.remove("busy");button.textContent=button.dataset.label||"TENTAR NOVAMENTE";}
+      renderConnect20(state.connect);
+      $("connectError20").textContent="A operação demorou mais que o esperado. Tente atualizar.";
+    },12000);
   }
   function updateMediaProgress20(){
     const media=state.media;
@@ -207,6 +224,9 @@
   }
   function applyTheme(theme){
     if(!theme)return;
+    const nextSignature=JSON.stringify([theme.id,theme.primary,theme.accent,theme.soft,theme.dim,theme.background,theme.surface]);
+    if(state.themeSignature===nextSignature)return;
+    state.themeSignature=nextSignature;
     state.theme=theme;
     try{localStorage.setItem("Maia.horizon.themePayload",JSON.stringify(theme));}catch(error){}
     const root=document.documentElement.style;
@@ -337,7 +357,7 @@
   });
   $("toggleSound").addEventListener("change",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainSilentToggle"},"*"));
   const controlGroups=[
-    ["Desempenho",[["Alternar Normal / Economia","brainPerformanceMode"],["Prévia do tema","brainVisualPreview"]]],
+    ["Desempenho",[["Alternar Normal / Economia","brainPerformanceMode"]]],
     ["Integrações",[["Verificar integrações","brainIntegrationStatus"],["Testar tudo","brainTestAll"],["Home Assistant","brainHaStatus"],["Clima","brainWeatherTest"],["Trânsito","brainTrafficCheck"]]],
     ["Automação",[["Modo trabalho","command:modo trabalho"],["Modo jogo","command:modo jogo"],["Modo noite","command:modo noite"],["Modo cinema","command:modo cinema"],["Relógio do Windows","brainWindowsClockOpen"]]],
     ["Dados e segurança",[["Memória","brainMemoryView"],["Histórico","brainHistoryView"],["Exportar backup","brainBackupExport"],["Privacidade","brainPrivacyView"],["Diagnóstico","brainDiagnostics"],["Atualizações","brainUpdateCheck"]]],
@@ -386,10 +406,10 @@
     </div>
     <div class="connect-qr20"><img id="connectQr20" alt="QR Code do Maia Connect" hidden><span id="connectQrEmpty20">Ative o Connect para gerar o QR Code</span></div>`;
   $("view-config").appendChild(connectCenter);
-  $("connectToggle20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectEnable"},"*"));
-  $("connectRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectRefresh"},"*"));
-  $("connectDisable20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectDisable"},"*"));
-  $("connectForget20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectForget"},"*"));
+  $("connectToggle20").addEventListener("click",(event)=>runConnectControl20("brainConnectEnable",event.currentTarget));
+  $("connectRefresh20").addEventListener("click",(event)=>runConnectControl20("brainConnectRefresh",event.currentTarget));
+  $("connectDisable20").addEventListener("click",(event)=>runConnectControl20("brainConnectDisable",event.currentTarget));
+  $("connectForget20").addEventListener("click",(event)=>runConnectControl20("brainConnectForget",event.currentTarget));
   $("connectCopy20").addEventListener("click",async()=>{
     const status=state.connect||{},address=(status.addresses||[])[0]||"";
     if(!status.enabled||!address)return;
@@ -456,8 +476,121 @@
   addForm("Perfil e preferências",[["brainOwnerName","Seu nome"],["brainCity","Cidade"],["brainTreatment","Tratamento","select"],["brainSpeechMode","Personalidade","select"],["brainPresence","Presença","select"],["brainVolume","Volume","number"],["brainWakeWords","Palavras de ativação"]],[["Salvar perfil","horizonProfileApply"]]);
   addForm("Home Assistant",[["brainHaUrl","Endereço"],["brainHaToken","Token","password"],["brainHaEntity","Entidade","select"],["brainHaAction","Ação","select"]],[["Conectar","brainHaConnect"],["Atualizar dispositivos","brainHaRefresh"],["Executar","brainHaRun"]]);
   addForm("Clima e trânsito",[["brainMobilityCity","Cidade"],["brainTrafficOrigin","Origem"],["brainTrafficKey","Google Routes","password"],["brainTrafficDestination","Destino"]],[["Salvar","brainMobilitySave"],["Ver clima","brainWeatherTest"],["Ver trânsito","brainTrafficCheck"]]);
-  addForm("Aparência",[["brainTheme","Tema","select"],["brainAutoTheme","Tema automático","select"]],[["Aplicar tema","brainThemeApply"],["Aplicar automático","brainAutoThemeApply"]]);
-  addForm("Rotinas",[["brainRoutineName","Nome"],["brainRoutine","Ações"],["brainRoutineSaved","Rotina salva","select"]],[["Salvar","brainRoutineSave"],["Executar","brainRoutineRun"],["Excluir","brainRoutineDelete"]]);
+  addForm("Aparência",[["brainTheme","Tema","select"],["brainAutoTheme","Tema automático","select"]],[["Prévia deste tema","brainVisualPreview"],["Aplicar tema","brainThemeApply"],["Aplicar automático","brainAutoThemeApply"]]);
+  addForm("Voz e microfone",[["brainVoiceRate","Velocidade da voz","number"],["brainMicSensitivity","Sensibilidade do microfone","number"]],[["Salvar velocidade","brainVoiceApply"],["Aplicar sensibilidade","brainMicApply"]]);
+  const voiceRateControl=document.querySelector('[data-horizon-field="brainVoiceRate"]');
+  const micSensitivityControl=document.querySelector('[data-horizon-field="brainMicSensitivity"]');
+  if(voiceRateControl){voiceRateControl.min="60";voiceRateControl.max="140";voiceRateControl.step="5";}
+  if(micSensitivityControl){micSensitivityControl.min="10";micSensitivityControl.max="100";micSensitivityControl.step="5";}
+  const routineStudio=document.createElement("section");
+  routineStudio.className="routine-studio20";
+  routineStudio.innerHTML=`
+    <div class="panel-title">Rotinas e ações</div>
+    <div class="routine-head20">
+      <label><span>ROTINA SALVA</span><select id="routineSaved20"><option value="">Nova rotina</option></select></label>
+      <label><span>NOME</span><input id="routineName20" maxlength="60" placeholder="Ex.: Começar trabalho"></label>
+    </div>
+    <div class="routine-builder20">
+      <div>
+        <span class="studio-label20">SELETOR VISUAL DE AÇÕES</span>
+        <div class="routine-palette20" id="routinePalette20"></div>
+        <form class="routine-custom20" id="routineCustom20"><input id="routineCustomInput20" maxlength="160" placeholder="Ou escreva um comando personalizado"><button>ADICIONAR</button></form>
+      </div>
+      <div>
+        <span class="studio-label20">ORDEM DE EXECUÇÃO</span>
+        <div class="routine-draft20" id="routineDraft20"></div>
+      </div>
+    </div>
+    <div class="studio-actions20">
+      <button type="button" id="routineNew20">NOVA</button>
+      <button type="button" class="primary" id="routineSave20">SALVAR</button>
+      <button type="button" id="routineRun20">EXECUTAR</button>
+      <button type="button" class="danger" id="routineDelete20">EXCLUIR</button>
+    </div>`;
+  $("view-config").appendChild(routineStudio);
+  const presetActions20=["modo foco","modo repouso","modo combate","abrir chrome","abrir vs code","abrir spotify","abrir youtube","volume 25","volume 50","volume 75","pausar música","próxima música"];
+  $("routinePalette20").innerHTML=presetActions20.map((action)=>`<button type="button" data-routine-add="${escapeHtml(action)}">＋ ${escapeHtml(action)}</button>`).join("");
+  function renderRoutineStudio20(){
+    const saved=$("routineSaved20");
+    if(!saved)return;
+    const current=state.routineOriginalName;
+    saved.innerHTML='<option value="">Nova rotina</option>'+Object.keys(state.routines).sort((a,b)=>a.localeCompare(b,"pt-BR")).map((name)=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+    saved.value=Object.hasOwn(state.routines,current)?current:"";
+    $("routineName20").value=state.routineOriginalName||$("routineName20").value;
+    $("routineDraft20").innerHTML=state.routineDraft.length?state.routineDraft.map((action,index)=>`
+      <div class="routine-item20"><b>${index+1}</b><span>${escapeHtml(action)}</span>
+        <button type="button" data-routine-move="${index}:-1" aria-label="Mover para cima" ${index===0?"disabled":""}>↑</button>
+        <button type="button" data-routine-move="${index}:1" aria-label="Mover para baixo" ${index===state.routineDraft.length-1?"disabled":""}>↓</button>
+        <button type="button" class="danger" data-routine-remove="${index}" aria-label="Remover">×</button>
+      </div>`).join(""):'<div class="studio-empty20">Adicione ações usando o seletor ao lado.</div>';
+    $("routineRun20").disabled=!state.routineDraft.length;
+    $("routineDelete20").disabled=!state.routineOriginalName;
+  }
+  function addRoutineAction20(action){
+    const value=String(action||"").trim();
+    if(!value||state.routineDraft.length>=12)return;
+    state.routineDraft.push(value);
+    renderRoutineStudio20();
+  }
+  routineStudio.addEventListener("click",(event)=>{
+    const add=event.target.closest("[data-routine-add]");
+    const remove=event.target.closest("[data-routine-remove]");
+    const move=event.target.closest("[data-routine-move]");
+    if(add){addRoutineAction20(add.dataset.routineAdd);return;}
+    if(remove){state.routineDraft.splice(Number(remove.dataset.routineRemove),1);renderRoutineStudio20();return;}
+    if(move){
+      const [from,delta]=move.dataset.routineMove.split(":").map(Number),to=from+delta;
+      if(to>=0&&to<state.routineDraft.length)[state.routineDraft[from],state.routineDraft[to]]=[state.routineDraft[to],state.routineDraft[from]];
+      renderRoutineStudio20();
+    }
+  });
+  $("routineCustom20").addEventListener("submit",(event)=>{event.preventDefault();addRoutineAction20($("routineCustomInput20").value);$("routineCustomInput20").value="";});
+  $("routineSaved20").addEventListener("change",(event)=>{
+    const name=event.target.value;
+    state.routineOriginalName=name;
+    state.routineDraft=Array.isArray(state.routines[name])?[...state.routines[name]]:[];
+    $("routineName20").value=name;
+    renderRoutineStudio20();
+  });
+  $("routineNew20").addEventListener("click",()=>{state.routineOriginalName="";state.routineDraft=[];$("routineName20").value="";renderRoutineStudio20();});
+  function postRoutine20(action){
+    const name=$("routineName20").value.trim();
+    if((action==="save"||action==="run")&&(!name||!state.routineDraft.length)){$("horizonControlOutput").textContent="Informe o nome e adicione ao menos uma ação.";return;}
+    parentWindow.postMessage({type:"maia-routine-action",action,name,originalName:state.routineOriginalName,commands:[...state.routineDraft]},"*");
+    if(action==="save")state.routineOriginalName=name;
+    if(action==="delete"){state.routineOriginalName="";state.routineDraft=[];$("routineName20").value="";renderRoutineStudio20();}
+  }
+  $("routineSave20").addEventListener("click",()=>postRoutine20("save"));
+  $("routineRun20").addEventListener("click",()=>postRoutine20("run"));
+  $("routineDelete20").addEventListener("click",()=>postRoutine20("delete"));
+  renderRoutineStudio20();
+  const commandCenter=document.createElement("section");
+  commandCenter.className="command-center20";
+  commandCenter.innerHTML=`
+    <div class="panel-title">Comandos e histórico</div>
+    <div class="command-grid20">
+      <div><label class="command-search20"><span>CATÁLOGO PESQUISÁVEL</span><input id="commandCatalogSearch20" type="search" placeholder="Buscar comando ou ação"></label><div class="command-list20" id="commandCatalog20"></div></div>
+      <div><div class="command-history-head20"><span class="studio-label20">ÚLTIMOS COMANDOS</span><button type="button" id="commandHistoryClear20">LIMPAR</button></div><div class="command-list20" id="commandHistory20"></div></div>
+    </div>`;
+  $("view-config").appendChild(commandCenter);
+  function executeCatalogCommand20(command){parentWindow.postMessage({type:"maia-interface-command",text:command,terminal:false},"*");}
+  function renderCommandCatalog20(){
+    const query=String($("commandCatalogSearch20")?.value||"").trim().toLowerCase();
+    const visible=state.commandCatalog.filter((command)=>!query||command.toLowerCase().includes(query)).slice(0,40);
+    $("commandCatalog20").innerHTML=visible.length?visible.map((command)=>`<button type="button" data-catalog-command="${escapeHtml(command)}"><span>${escapeHtml(command)}</span><b>EXECUTAR</b></button>`).join(""):'<div class="studio-empty20">Nenhum comando encontrado.</div>';
+  }
+  function renderCommandHistory20(){
+    const items=state.commandHistory.slice(0,30);
+    $("commandHistory20").innerHTML=items.length?items.map((item,index)=>`<button type="button" data-history-repeat="${index}"><span>${escapeHtml(item.text||"")}</span><small>${item.at?new Date(item.at).toLocaleString("pt-BR"):""}</small><b>REPETIR</b></button>`).join(""):'<div class="studio-empty20">O histórico aparecerá aqui.</div>';
+  }
+  commandCenter.addEventListener("click",(event)=>{
+    const catalog=event.target.closest("[data-catalog-command]");
+    const history=event.target.closest("[data-history-repeat]");
+    if(catalog)executeCatalogCommand20(catalog.dataset.catalogCommand);
+    if(history){const item=state.commandHistory[Number(history.dataset.historyRepeat)];if(item)parentWindow.postMessage({type:"maia-history-repeat",text:item.text},"*");}
+  });
+  $("commandCatalogSearch20").addEventListener("input",renderCommandCatalog20);
+  $("commandHistoryClear20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-history-clear"},"*"));
   addForm("Relógio e lembretes",[["brainClockType","Tipo","select"],["brainClockWhen","Horário","datetime-local"],["brainClockMessage","Mensagem"]],[["Criar","brainClockAdd"],["Atualizar","brainClockRefresh"],["Abrir Relógio","brainWindowsClockOpen"]]);
   const extensionCenter=document.createElement("section");
   extensionCenter.className="horizon-extension-center";
@@ -496,8 +629,8 @@
     if(value.includes("perfil"))return"perfil";
     if(value.includes("home assistant")||value.includes("clima")||value.includes("integra"))return"integracoes";
     if(value.includes("connect"))return"connect";
-    if(value.includes("automa")||value.includes("rotina"))return"automacao";
-    if(value.includes("apar")||value.includes("desempenho"))return"visual";
+    if(value.includes("automa")||value.includes("rotina")||value.includes("comando"))return"automacao";
+    if(value.includes("apar")||value.includes("desempenho")||value.includes("voz")||value.includes("microfone"))return"visual";
     if(value.includes("dado")||value.includes("seguran"))return"dados";
     if(value.includes("relógio")||value.includes("lembrete"))return"relogio";
     if(value.includes("extens"))return"extensoes";
@@ -561,6 +694,18 @@
       renderExtensionCenter20();
       applyCursorTheme20();
     }
+    if(snapshot.routines&&snapshot.routines.saved){
+      state.routines=snapshot.routines.saved;
+      renderRoutineStudio20();
+    }
+    if(Array.isArray(snapshot.commandCatalog)){
+      state.commandCatalog=snapshot.commandCatalog;
+      renderCommandCatalog20();
+    }
+    if(Array.isArray(snapshot.commandHistory)){
+      state.commandHistory=snapshot.commandHistory;
+      renderCommandHistory20();
+    }
   }
   document.addEventListener("input",(event)=>{
     const control=event.target.closest&&event.target.closest("[data-horizon-field]");
@@ -623,7 +768,7 @@
     if(command){switchView("inicio");$("chatInput").value=command.dataset.extensionCommand;$("chatInput").focus();}
   });
   const horizonStyle=document.createElement("style");
-  horizonStyle.textContent=".no-anim,.no-anim *{animation:none!important;transition:none!important}.horizon-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}.horizon-actions button,.horizon-category-nav button{border:1px solid color-mix(in srgb,var(--h-primary) 35%,transparent);background:color-mix(in srgb,var(--h-primary) 9%,transparent);color:var(--h-soft);padding:9px 12px;border-radius:5px;cursor:pointer;font:10px inherit;letter-spacing:.04em}.horizon-actions button:hover,.horizon-category-nav button:hover,.horizon-category-nav button.active{background:color-mix(in srgb,var(--h-primary) 22%,transparent);border-color:var(--h-primary);color:var(--h-primary)}#view-config{overflow:auto;padding-right:8px}.horizon-category-nav{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:7px;width:100%;padding:8px 0 16px;margin-bottom:14px;border-bottom:1px solid color-mix(in srgb,var(--h-primary) 18%,transparent);background:var(--h-bg);isolation:isolate}.horizon-category-nav button{position:relative;z-index:1;flex:0 0 auto;white-space:nowrap}.horizon-category{display:none;position:relative;z-index:1;clear:both;width:100%;padding-top:8px}.horizon-category.active{display:block;animation:horizonCategoryIn .18s ease}.horizon-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin-bottom:18px}.horizon-form>.panel-title,.horizon-form>.horizon-actions{grid-column:1/-1}.horizon-field{display:grid;gap:5px;color:var(--h-dim);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.horizon-field input,.horizon-field select{width:100%;height:34px;border:1px solid color-mix(in srgb,var(--h-primary) 25%,transparent);background:color-mix(in srgb,var(--h-surface) 34%,#050208);color:var(--h-soft);padding:0 9px;border-radius:4px;outline:none}.horizon-field input:focus,.horizon-field select:focus{border-color:var(--h-primary)}#horizonControlOutput{white-space:pre-wrap;min-height:54px;max-height:150px;margin-bottom:24px}.horizon-extension-center{width:100%}.extension-toolbar{display:grid;grid-template-columns:minmax(180px,1fr) 145px 170px;gap:10px;margin-bottom:12px}.extension-toolbar label{display:grid;gap:5px;color:var(--h-dim);font-size:8px;letter-spacing:.12em}.extension-toolbar input,.extension-toolbar select{height:36px;border:1px solid color-mix(in srgb,var(--h-primary) 28%,transparent);border-radius:6px;background:color-mix(in srgb,var(--h-surface) 45%,#050208);color:var(--h-soft);padding:0 10px;outline:none}.extension-summary20{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}.extension-summary20 span{padding:6px 9px;border:1px solid color-mix(in srgb,var(--h-primary) 20%,transparent);border-radius:99px;color:var(--h-dim);font-size:9px}.extension-summary20 b{color:var(--h-primary)}.extension-layout20{display:grid;grid-template-columns:minmax(280px,1.25fr) minmax(240px,.75fr);gap:14px;align-items:start}.extension-grid20{display:grid;gap:8px}.extension-card20{width:100%;display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;text-align:left;padding:11px;border:1px solid color-mix(in srgb,var(--h-primary) 18%,transparent);border-radius:8px;background:color-mix(in srgb,var(--h-surface) 26%,transparent);color:var(--h-soft)}.extension-card20:hover,.extension-card20.selected{border-color:var(--h-primary);background:color-mix(in srgb,var(--h-primary) 12%,var(--h-surface))}.extension-card20.disabled{opacity:.58}.extension-icon20{width:38px;height:38px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--h-primary) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--h-primary) 10%,transparent);color:var(--h-primary);font:700 10px var(--font-display)}.extension-card-body20{display:grid;gap:3px;min-width:0}.extension-card-body20 strong,.extension-detail-head20 strong{font-size:12px}.extension-card-body20 small,.extension-detail-head20 small{color:var(--h-dim);font-size:9px}.extension-card-body20 em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb,var(--h-soft) 68%,transparent);font-size:10px;font-style:normal}.extension-state20{font-size:8px;color:var(--h-primary)}.extension-card20.disabled .extension-state20{color:var(--h-dim)}.extension-detail20{position:sticky;top:0;min-height:230px;padding:15px;border:1px solid color-mix(in srgb,var(--h-primary) 25%,transparent);border-radius:9px;background:color-mix(in srgb,var(--h-surface) 42%,#050208)}.extension-detail-head20{display:flex;gap:10px;align-items:center}.extension-detail-head20 div{display:grid;gap:3px}.extension-detail20 p,.extension-detail20 li{color:color-mix(in srgb,var(--h-soft) 72%,transparent);font-size:10px;line-height:1.5}.extension-detail20 h4{margin:15px 0 7px;color:var(--h-primary);font-size:8px;letter-spacing:.14em}.extension-detail20 ul{margin:0;padding-left:17px}.extension-chips20{display:flex;flex-wrap:wrap;gap:5px}.extension-chips20 button{padding:6px 8px;border:1px solid color-mix(in srgb,var(--h-primary) 23%,transparent);border-radius:5px;color:var(--h-soft);background:transparent;font-size:9px}.extension-toggle20{width:100%;margin-top:16px;padding:9px;border:1px solid var(--h-primary);border-radius:6px;background:color-mix(in srgb,var(--h-primary) 16%,transparent);color:var(--h-primary);font-size:9px}.extension-toggle20.danger{border-color:#ff6b78;color:#ff8c96;background:rgba(255,80,95,.08)}.extension-empty20{padding:24px;text-align:center;color:var(--h-dim);font-size:10px}@keyframes horizonCategoryIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}@media(max-width:900px){.extension-layout20{grid-template-columns:1fr}.extension-detail20{position:relative}.extension-toolbar{grid-template-columns:1fr 1fr}.extension-search{grid-column:1/-1}}@media(max-width:760px){.horizon-form{grid-template-columns:1fr}.horizon-category-nav{gap:5px}.horizon-category-nav button{padding:8px 9px}.extension-toolbar{grid-template-columns:1fr}.extension-search{grid-column:auto}}";
+  horizonStyle.textContent=".no-anim,.no-anim *{animation:none!important;transition:none!important}.horizon-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}.horizon-actions button,.horizon-category-nav button,.studio-actions20 button{border:1px solid color-mix(in srgb,var(--h-primary) 35%,transparent);background:color-mix(in srgb,var(--h-primary) 9%,transparent);color:var(--h-soft);padding:9px 12px;border-radius:5px;cursor:pointer;font:10px inherit;letter-spacing:.04em}.horizon-actions button:hover,.horizon-category-nav button:hover,.horizon-category-nav button.active,.studio-actions20 button:hover{background:color-mix(in srgb,var(--h-primary) 22%,transparent);border-color:var(--h-primary);color:var(--h-primary)}#view-config{overflow:auto;padding-right:8px}.horizon-category-nav{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:7px;width:100%;padding:8px 0 16px;margin-bottom:14px;border-bottom:1px solid color-mix(in srgb,var(--h-primary) 18%,transparent);background:var(--h-bg);isolation:isolate}.horizon-category-nav button{position:relative;z-index:1;flex:0 0 auto;white-space:nowrap}.horizon-category{display:none;position:relative;z-index:1;clear:both;width:100%;padding-top:8px}.horizon-category.active{display:block;animation:horizonCategoryIn .18s ease}.horizon-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin-bottom:18px}.horizon-form>.panel-title,.horizon-form>.horizon-actions{grid-column:1/-1}.horizon-field,.routine-head20 label,.command-search20{display:grid;gap:5px;color:var(--h-dim);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.horizon-field input,.horizon-field select,.routine-head20 input,.routine-head20 select,.routine-custom20 input,.command-search20 input{width:100%;height:36px;border:1px solid color-mix(in srgb,var(--h-primary) 25%,transparent);background:color-mix(in srgb,var(--h-surface) 34%,#050208);color:var(--h-soft);padding:0 9px;border-radius:6px;outline:none}.horizon-field input:focus,.horizon-field select:focus,.routine-head20 input:focus,.routine-head20 select:focus,.routine-custom20 input:focus,.command-search20 input:focus{border-color:var(--h-primary)}#horizonControlOutput{white-space:pre-wrap;min-height:54px;max-height:150px;margin-bottom:24px}.routine-studio20,.command-center20{margin-bottom:22px;padding:15px;border:1px solid color-mix(in srgb,var(--h-primary) 20%,transparent);border-radius:10px;background:linear-gradient(145deg,color-mix(in srgb,var(--h-primary) 7%,var(--h-surface)),color-mix(in srgb,var(--h-bg) 94%,transparent))}.routine-head20,.routine-builder20,.command-grid20{display:grid;grid-template-columns:1fr 1fr;gap:12px}.routine-builder20{margin-top:14px}.studio-label20{display:block;margin-bottom:8px;color:var(--h-dim);font-size:8px;letter-spacing:.12em}.routine-palette20{display:flex;flex-wrap:wrap;gap:6px}.routine-palette20 button,.routine-item20 button,.routine-custom20 button,.command-list20 button,.command-history-head20 button{border:1px solid color-mix(in srgb,var(--h-primary) 25%,transparent);border-radius:6px;background:color-mix(in srgb,var(--h-primary) 8%,transparent);color:var(--h-soft);cursor:pointer}.routine-palette20 button{padding:7px 9px;font-size:9px}.routine-custom20{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}.routine-custom20 button{padding:0 11px;font-size:8px}.routine-draft20,.command-list20{display:grid;gap:6px;max-height:260px;overflow:auto}.routine-item20{display:grid;grid-template-columns:24px minmax(0,1fr) 28px 28px 28px;gap:5px;align-items:center;padding:7px;border:1px solid color-mix(in srgb,var(--h-primary) 16%,transparent);border-radius:7px;background:rgba(0,0,0,.12)}.routine-item20>b{display:grid;place-items:center;color:var(--h-primary);font-size:9px}.routine-item20 span{overflow:hidden;color:var(--h-soft);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.routine-item20 button{height:27px}.routine-item20 button:disabled{opacity:.25}.studio-actions20{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}.studio-actions20 .primary{background:var(--h-primary);color:var(--h-bg)}.studio-actions20 .danger,.routine-item20 .danger{border-color:#ff6576;color:#ff8995}.studio-empty20{padding:18px;text-align:center;color:var(--h-dim);font-size:9px}.command-history-head20{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.command-history-head20 .studio-label20{margin:0}.command-history-head20 button{padding:5px 8px;font-size:7px}.command-list20 button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;align-items:center;padding:9px;text-align:left}.command-list20 button span{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.command-list20 button b{grid-column:2;grid-row:1/3;color:var(--h-primary);font-size:7px}.command-list20 button small{color:var(--h-dim);font-size:7px}.horizon-extension-center{width:100%}.extension-toolbar{display:grid;grid-template-columns:minmax(180px,1fr) 145px 170px;gap:10px;margin-bottom:12px}.extension-toolbar label{display:grid;gap:5px;color:var(--h-dim);font-size:8px;letter-spacing:.12em}.extension-toolbar input,.extension-toolbar select{height:36px;border:1px solid color-mix(in srgb,var(--h-primary) 28%,transparent);border-radius:6px;background:color-mix(in srgb,var(--h-surface) 45%,#050208);color:var(--h-soft);padding:0 10px;outline:none}.extension-summary20{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}.extension-summary20 span{padding:6px 9px;border:1px solid color-mix(in srgb,var(--h-primary) 20%,transparent);border-radius:99px;color:var(--h-dim);font-size:9px}.extension-summary20 b{color:var(--h-primary)}.extension-layout20{display:grid;grid-template-columns:minmax(280px,1.25fr) minmax(240px,.75fr);gap:14px;align-items:start}.extension-grid20{display:grid;gap:8px}.extension-card20{width:100%;display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;text-align:left;padding:11px;border:1px solid color-mix(in srgb,var(--h-primary) 18%,transparent);border-radius:8px;background:color-mix(in srgb,var(--h-surface) 26%,transparent);color:var(--h-soft)}.extension-card20:hover,.extension-card20.selected{border-color:var(--h-primary);background:color-mix(in srgb,var(--h-primary) 12%,var(--h-surface))}.extension-card20.disabled{opacity:.58}.extension-icon20{width:38px;height:38px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--h-primary) 42%,transparent);border-radius:10px;background:color-mix(in srgb,var(--h-primary) 10%,transparent);color:var(--h-primary);font:700 10px var(--font-display)}.extension-card-body20{display:grid;gap:3px;min-width:0}.extension-card-body20 strong,.extension-detail-head20 strong{font-size:12px}.extension-card-body20 small,.extension-detail-head20 small{color:var(--h-dim);font-size:9px}.extension-card-body20 em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb,var(--h-soft) 68%,transparent);font-size:10px;font-style:normal}.extension-state20{font-size:8px;color:var(--h-primary)}.extension-card20.disabled .extension-state20{color:var(--h-dim)}.extension-detail20{position:sticky;top:0;min-height:230px;padding:15px;border:1px solid color-mix(in srgb,var(--h-primary) 25%,transparent);border-radius:9px;background:color-mix(in srgb,var(--h-surface) 42%,#050208)}.extension-detail-head20{display:flex;gap:10px;align-items:center}.extension-detail-head20 div{display:grid;gap:3px}.extension-detail20 p,.extension-detail20 li{color:color-mix(in srgb,var(--h-soft) 72%,transparent);font-size:10px;line-height:1.5}.extension-detail20 h4{margin:15px 0 7px;color:var(--h-primary);font-size:8px;letter-spacing:.14em}.extension-detail20 ul{margin:0;padding-left:17px}.extension-chips20{display:flex;flex-wrap:wrap;gap:5px}.extension-chips20 button{padding:6px 8px;border:1px solid color-mix(in srgb,var(--h-primary) 23%,transparent);border-radius:5px;color:var(--h-soft);background:transparent;font-size:9px}.extension-toggle20{width:100%;margin-top:16px;padding:9px;border:1px solid var(--h-primary);border-radius:6px;background:color-mix(in srgb,var(--h-primary) 16%,transparent);color:var(--h-primary);font-size:9px}.extension-toggle20.danger{border-color:#ff6b78;color:#ff8c96;background:rgba(255,80,95,.08)}.extension-empty20{padding:24px;text-align:center;color:var(--h-dim);font-size:10px}@keyframes horizonCategoryIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}@media(max-width:900px){.extension-layout20{grid-template-columns:1fr}.extension-detail20{position:relative}.extension-toolbar{grid-template-columns:1fr 1fr}.extension-search{grid-column:1/-1}}@media(max-width:760px){.horizon-form,.routine-head20,.routine-builder20,.command-grid20{grid-template-columns:1fr}.horizon-category-nav{gap:5px}.horizon-category-nav button{padding:8px 9px}.extension-toolbar{grid-template-columns:1fr}.extension-search{grid-column:auto}}";
   document.head.appendChild(horizonStyle);
   document.body.classList.remove("no-anim");
   localStorage.setItem("Maia.horizon.animations","1");
