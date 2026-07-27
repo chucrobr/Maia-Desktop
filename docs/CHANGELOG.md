@@ -1,5 +1,13 @@
 # Novidades da Maia
 
+## 5.3.0-beta.7 — Central Multimídia corrigida
+
+- Cartão antigo “Todos os sistemas operacionais” removido definitivamente.
+- Painel lateral reorganizado para a Central Multimídia ficar totalmente visível em 1280×760.
+- Capas HTTPS do Spotify liberadas pela política de segurança da Horizon.
+- Botão central de reprodução e pausa redesenhado.
+- Aleatório e repetição conectados à API real do Spotify, com estados visuais ativos.
+
 ## 5.3.0-beta.6 — Horizon corrigida
 
 - Salvamento da Central alterado para persistir somente os campos modificados.

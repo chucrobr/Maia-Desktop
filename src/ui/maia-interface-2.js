@@ -127,16 +127,33 @@
     $("mediaService20").textContent=service;
     center.style.setProperty("--media-glow",service==="SPOTIFY"?"#1ed760":service==="YOUTUBE"?"#ff3030":"var(--h-primary)");
     if(active&&state.media.image){
-      cover.src=state.media.image;
-      cover.hidden=false;
-      fallback.hidden=true;
+      const expectedImage=state.media.image;
+      cover.onload=()=>{
+        if(cover.src===expectedImage||cover.src.endsWith(expectedImage)){
+          cover.hidden=false;
+          fallback.hidden=true;
+        }
+      };
+      cover.src=expectedImage;
+      if(cover.complete&&cover.naturalWidth){
+        cover.hidden=false;
+        fallback.hidden=true;
+      }
     }else{
       cover.hidden=true;
       cover.removeAttribute("src");
       fallback.hidden=false;
       fallback.textContent=service==="YOUTUBE"?"▶":"♫";
     }
-    $("mediaPlay20").textContent=active&&state.media.playing===true?"Ⅱ":"▶";
+    $("mediaPlay20").textContent=active&&state.media.playing===true?"❚❚":"▶";
+    $("mediaPlay20").setAttribute("aria-label",active&&state.media.playing===true?"Pausar":"Reproduzir");
+    const spotify=active&&String(state.media.service||"").toLowerCase()==="spotify";
+    $("mediaShuffle20").disabled=!spotify;
+    $("mediaRepeat20").disabled=!spotify;
+    $("mediaShuffle20").classList.toggle("active",spotify&&Boolean(state.media.shuffle));
+    $("mediaRepeat20").classList.toggle("active",spotify&&state.media.repeat&&state.media.repeat!=="off");
+    $("mediaRepeat20").textContent=spotify&&state.media.repeat==="track"?"↻¹":"↻";
+    $("mediaRepeat20").title=spotify&&state.media.repeat==="track"?"Repetindo esta faixa":spotify&&state.media.repeat==="context"?"Repetindo a playlist":"Repetição desligada";
     $("mediaDevice20").textContent=active?(state.media.device||"Dispositivo ativo"):"Nenhum dispositivo";
     $("mediaVolume20").textContent=active&&state.media.volumePercent!=null?`VOL ${Math.round(state.media.volumePercent)}%`:"VOL —";
     updateMediaProgress20();
@@ -287,7 +304,7 @@
   $("systemRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-action",action:"system.refresh"},"*"));
   document.querySelectorAll("[data-media-control]").forEach((button)=>button.addEventListener("click",()=>{
     const command=button.dataset.mediaControl;
-    parentWindow.postMessage({type:"maia-interface-action",action:command==="refresh"?"media.current":"media.control",command},"*");
+    parentWindow.postMessage({type:"maia-interface-action",action:"media.control",command},"*");
   }));
   $("mediaCover20").addEventListener("error",()=>{
     $("mediaCover20").hidden=true;

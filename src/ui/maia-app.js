@@ -5403,9 +5403,15 @@
           if(lastPlayback20&&lastPlayback20.service==="spotify"){
             if(command==="previous")await callBridge("spotify.previous");
             else if(command==="next")await callBridge("spotify.next");
+            else if(command==="shuffle")await callBridge("spotify.shuffle",{enabled:!Boolean(lastPlayback20.shuffle)});
+            else if(command==="repeat"){
+              const nextRepeat=lastPlayback20.repeat==="off"?"context":lastPlayback20.repeat==="context"?"track":"off";
+              await callBridge("spotify.repeat",{mode:nextRepeat});
+            }
             else if(lastPlayback20.playing)await callBridge("spotify.pause");
             else await callBridge("spotify.resume");
           }else{
+            if(command==="shuffle"||command==="repeat")throw new Error("controle exclusivo do Spotify");
             await callBridge(command==="previous"?"media.previous":command==="next"?"media.next":"media.playpause");
           }
           setTimeout(refreshNowPlaying20,350);
