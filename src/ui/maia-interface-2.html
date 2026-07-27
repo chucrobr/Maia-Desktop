@@ -140,6 +140,7 @@
   .connect-status20{display:flex;align-items:center;gap:8px;margin-bottom:12px;color:var(--h-dim);font-size:9px;letter-spacing:.1em}.connect-status20 i{width:8px;height:8px;border-radius:50%;background:#657080;box-shadow:0 0 10px currentColor}.connect-center20.active .connect-status20{color:#62e6a7}.connect-center20.active .connect-status20 i{background:#62e6a7}
   .connect-details20{display:grid;grid-template-columns:1fr 1fr;gap:8px}.connect-detail20{min-width:0;padding:9px;border:1px solid color-mix(in srgb,var(--h-primary) 16%,transparent);border-radius:7px;background:rgba(0,0,0,.12)}.connect-detail20 span,.connect-detail20 strong{display:block}.connect-detail20 span{color:var(--h-dim);font-size:7px;letter-spacing:.1em}.connect-detail20 strong{overflow:hidden;margin-top:5px;color:var(--h-soft);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.connect-code20 strong{color:var(--h-primary);font-size:18px;letter-spacing:.16em}
   .connect-actions20{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}.connect-actions20 button{height:33px;padding:0 11px;border:1px solid color-mix(in srgb,var(--h-primary) 32%,transparent);border-radius:7px;background:color-mix(in srgb,var(--h-primary) 9%,transparent);color:var(--h-soft);font-size:8px;cursor:pointer;transition:border-color .18s,background .18s,transform .18s}.connect-actions20 button:hover:not(:disabled){border-color:var(--h-primary);color:var(--h-primary);transform:translateY(-1px)}.connect-actions20 button.primary{background:var(--h-primary);color:var(--h-bg)}.connect-actions20 button:disabled{cursor:not-allowed;opacity:.38}.connect-actions20 button.busy{opacity:.72;animation:connectPulse20 .8s ease-in-out infinite alternate}@keyframes connectPulse20{to{filter:brightness(1.4)}}
+  .horizon-actions button.busy{opacity:.7;cursor:wait;animation:connectPulse20 .8s ease-in-out infinite alternate}
   .connect-qr20{display:grid;place-items:center;align-content:center;min-height:205px;padding:10px;border:1px dashed color-mix(in srgb,var(--h-primary) 35%,transparent);border-radius:11px;background:rgba(0,0,0,.14);color:var(--h-dim);font-size:9px;line-height:1.5;text-align:center}.connect-qr20 img{width:180px;height:180px;padding:7px;border-radius:10px;background:#fff;box-shadow:0 0 26px color-mix(in srgb,var(--h-primary) 22%,transparent)}.connect-error20:not(:empty){margin-top:11px;padding:8px 10px;border:1px solid rgba(255,128,144,.26);border-radius:6px;background:rgba(255,80,100,.06);color:#ff9aaa;font-size:9px;line-height:1.4}
   @media(max-width:760px){.connect-center20{grid-template-columns:1fr}.connect-details20{grid-template-columns:1fr}.connect-qr20{min-height:120px}}
   .title-block{ text-align:center; }
@@ -604,13 +605,13 @@
         <div class="config-row"><span>Modo compacto</span><label class="toggle"><input type="checkbox" id="toggleCompact"><span class="toggle-slider"></span></label></div>
         <div class="config-row"><span>Notificações sonoras</span><label class="toggle"><input type="checkbox" id="toggleSound"><span class="toggle-slider"></span></label></div>
         <div class="config-row"><span>Tema de cor</span><span class="config-value" id="activeThemeName">Carregando…</span></div>
-        <div class="config-row"><span>Versão da Maia</span><span class="config-value">5.3.0-beta.9</span></div>
+        <div class="config-row"><span>Versão da Maia</span><span class="config-value">5.3.0-beta.10</span></div>
       </div>
 
       <div class="view" id="view-terminal">
         <div class="panel-title">Terminal M.A.I.A.</div>
         <div class="terminal-log" id="terminalLog">
-          <div class="terminal-line">M.A.I.A. Terminal v5.3.0-beta.9 — Horizon.</div>
+          <div class="terminal-line">M.A.I.A. Terminal v5.3.0-beta.10 — Horizon.</div>
           <div class="terminal-line">Digite "help" para ver os comandos disponíveis.</div>
         </div>
       </div>

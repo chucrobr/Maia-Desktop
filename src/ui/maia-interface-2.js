@@ -4,6 +4,20 @@
   const $ = (id) => document.getElementById(id);
   const state = {view:"inicio", pending:false, pendingTimer:null, stats:{cpu:0,ram:0,gpu:0,energia:100}, extensions:[], selectedExtension:"", theme:null, media:null, connect:null, connectBusy:false, routines:{}, routineDraft:[], routineOriginalName:"", commandCatalog:[], commandHistory:[], chatHidden:localStorage.getItem("Maia.horizon.chatHidden")==="1"};
   const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+  function setActionBusy20(button,busy){
+    if(!button)return;
+    if(busy){
+      button.dataset.readyLabel=button.textContent;
+      button.textContent="PROCESSANDO…";
+      button.disabled=true;
+      button.classList.add("busy");
+    }else{
+      button.textContent=button.dataset.readyLabel||button.textContent;
+      button.disabled=false;
+      button.classList.remove("busy");
+    }
+  }
+  function finishHorizonActions20(){document.querySelectorAll(".horizon-actions button.busy").forEach((button)=>setActionBusy20(button,false));}
   const pad = (value) => String(value).padStart(2, "0");
   const days = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
   const months = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
@@ -300,6 +314,7 @@
       $("sendBtn").disabled = false;
       if(message.terminal) terminal(message.text || "Comando concluído.");
       else bubble("assistant", message.text || "Comando enviado ao núcleo da Maia.");
+      finishHorizonActions20();
     }
     if(message.type === "maia-interface-devices"){
       const list=document.querySelector(".device-list");
@@ -310,6 +325,7 @@
     if(message.type === "maia-interface-control-result"){
       const output=$("horizonControlOutput");
       if(output)output.textContent=message.text||"Ação concluída.";
+      finishHorizonActions20();
     }
     if(message.type==="maia-interface-files")renderFiles20(message.items,message.message);
     if(message.type==="maia-interface-processes")renderProcesses20(message.items);
@@ -359,7 +375,7 @@
   const controlGroups=[
     ["Desempenho",[["Alternar Normal / Economia","brainPerformanceMode"]]],
     ["Integrações",[["Verificar integrações","brainIntegrationStatus"],["Testar tudo","brainTestAll"],["Home Assistant","brainHaStatus"],["Clima","brainWeatherTest"],["Trânsito","brainTrafficCheck"]]],
-    ["Automação",[["Modo trabalho","command:modo trabalho"],["Modo jogo","command:modo jogo"],["Modo noite","command:modo noite"],["Modo cinema","command:modo cinema"],["Relógio do Windows","brainWindowsClockOpen"]]],
+    ["Automação",[["Modo trabalho","command:modo trabalho"],["Modo jogo","command:modo jogo"],["Modo noite","command:modo noite"],["Modo cinema","command:modo cinema"],["Modo reunião","command:modo reunião"],["Modo estudo","command:modo estudo"],["Relógio do Windows","brainWindowsClockOpen"]]],
     ["Dados e segurança",[["Memória","brainMemoryView"],["Histórico","brainHistoryView"],["Exportar backup","brainBackupExport"],["Privacidade","brainPrivacyView"],["Diagnóstico","brainDiagnostics"],["Atualizações","brainUpdateCheck"]]],
   ];
   controlGroups.forEach(([title,controls])=>{
@@ -373,7 +389,7 @@
       const button=document.createElement("button");
       button.type="button";
       button.textContent=label;
-      button.addEventListener("click",()=>parentWindow.postMessage(id.startsWith("command:")?{type:"maia-interface-command",text:id.slice(8),terminal:false}:{type:"maia-interface-control",id},"*"));
+      button.addEventListener("click",()=>{setActionBusy20(button,true);parentWindow.postMessage(id.startsWith("command:")?{type:"maia-interface-command",text:id.slice(8),terminal:false}:{type:"maia-interface-control",id},"*");});
       row.appendChild(button);
     });
     $("view-config").appendChild(row);
@@ -462,6 +478,7 @@
           return;
         }
         parentWindow.postMessage({type:"maia-interface-form",values,click},"*");
+        setActionBusy20(button,true);
         section.querySelectorAll("[data-horizon-field]").forEach((control)=>{
           if(control.dataset.horizonDirty!=="1")return;
           control.dataset.horizonInitial=control.value;

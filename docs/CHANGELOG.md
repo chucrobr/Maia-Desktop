@@ -1,5 +1,14 @@
 # Novidades da Maia
 
+## 5.3.0-beta.10 — Modos e integrações
+
+- Modos Trabalho, Jogo, Noite, Cinema, Reunião e Estudo agora toleram aplicativos indisponíveis sem cancelar toda a sequência.
+- Resultados dos modos informam ações concluídas e indisponíveis.
+- Integrações assíncronas devolvem o resultado final à Horizon sem ficar presas em “consultando”.
+- Home Assistant ganhou validação, atualização confiável de entidades e ações compatíveis.
+- Central de Integrações agora verifica Home Assistant, clima e Google Routes.
+- Clima e trânsito validam os dados antes da consulta e mostram erros claros.
+
 ## 5.3.0-beta.9 — Rotinas, comandos e Connect
 
 - Editor visual de rotinas com catálogo de ações, comandos personalizados, reordenação, edição, execução e exclusão.

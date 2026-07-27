@@ -1609,34 +1609,48 @@
     const haUrl=document.getElementById("brainHaUrl"),haToken=document.getElementById("brainHaToken"),haEntity=document.getElementById("brainHaEntity"),haAction=document.getElementById("brainHaAction"),haOutput=document.getElementById("brainHaOutput");
     const haActions={light:["turn_on","turn_off","toggle"],switch:["turn_on","turn_off","toggle"],fan:["turn_on","turn_off","toggle"],scene:["turn_on"],automation:["trigger","turn_on","turn_off"],cover:["open_cover","close_cover"],lock:["lock","unlock"],climate:["turn_on","turn_off"],media_player:["media_play_pause","turn_on","turn_off"]};
     const haActionLabels={turn_on:"Ligar/ativar",turn_off:"Desligar",toggle:"Alternar",trigger:"Executar automação",open_cover:"Abrir",close_cover:"Fechar",lock:"Trancar",unlock:"Destrancar",media_play_pause:"Reproduzir/pausar"};
+    function publishIntegrationResult20(text){
+      postModern20({type:"maia-interface-control-result",text});
+      postModern20({type:"maia-interface-snapshot",data:horizonControlSnapshot20()});
+    }
     function syncHaActions(){const option=haEntity.options[haEntity.selectedIndex],domain=option&&option.dataset.domain||"";haAction.innerHTML=(haActions[domain]||[]).map(value=>`<option value="${value}">${haActionLabels[value]||value}</option>`).join("")}
-    async function loadHaEntities(){haOutput.textContent="Carregando entidades…";try{const response=await callBridge("integration.homeAssistant.entities"),items=response.result||[];haEntity.innerHTML=items.map(item=>`<option value="${escapeHtml(item.entityId)}" data-domain="${escapeHtml(item.domain)}">${escapeHtml(item.name)} • ${escapeHtml(item.state)}</option>`).join("")||'<option value="">Nenhuma entidade compatível</option>';syncHaActions();haOutput.textContent=items.length+" entidades compatíveis carregadas."}catch(err){haOutput.textContent="Home Assistant: "+err.message}}
+    async function loadHaEntities(publish=true){haOutput.textContent="Carregando entidades…";try{const response=await callBridge("integration.homeAssistant.entities"),items=response.result||[];haEntity.innerHTML=items.map(item=>`<option value="${escapeHtml(item.entityId)}" data-domain="${escapeHtml(item.domain)}">${escapeHtml(item.name)} • ${escapeHtml(item.state)}</option>`).join("")||'<option value="">Nenhuma entidade compatível</option>';syncHaActions();haOutput.textContent=items.length+" entidades compatíveis carregadas."}catch(err){haEntity.innerHTML='<option value="">Integração indisponível</option>';syncHaActions();haOutput.textContent="Home Assistant: "+err.message}finally{if(publish)publishIntegrationResult20(haOutput.textContent)}}
     haEntity.addEventListener("change",syncHaActions);
-    document.getElementById("brainHaConnect").addEventListener("click",async()=>{haOutput.textContent="Conectando…";try{const response=await callBridge("integration.homeAssistant.configure",{baseUrl:haUrl.value,token:haToken.value}),result=response.result||{};haToken.value="";haOutput.textContent="✓ Conectado a "+(result.locationName||"Home Assistant")+" • versão "+(result.version||"detectada");await loadHaEntities()}catch(err){haOutput.textContent="Falha: "+err.message}});
+    document.getElementById("brainHaConnect").addEventListener("click",async()=>{haOutput.textContent="Conectando…";try{if(!haUrl.value.trim())throw new Error("informe o endereço do Home Assistant");if(!haToken.value.trim())throw new Error("informe o token de longa duração");const response=await callBridge("integration.homeAssistant.configure",{baseUrl:haUrl.value,token:haToken.value}),result=response.result||{};haToken.value="";haOutput.textContent="✓ Conectado a "+(result.locationName||"Home Assistant")+" • versão "+(result.version||"detectada");await loadHaEntities(false)}catch(err){haOutput.textContent="Falha: "+err.message}finally{publishIntegrationResult20(haOutput.textContent)}});
     document.getElementById("brainHaRefresh").addEventListener("click",loadHaEntities);
-    document.getElementById("brainHaStatus").addEventListener("click",async()=>{try{const response=await callBridge("integration.homeAssistant.status"),result=response.result||{};if(result.baseUrl)haUrl.value=result.baseUrl;haOutput.textContent=result.connected?"✓ "+(result.locationName||"Home Assistant")+" conectado • "+(result.version||"versão detectada"):result.configured?"Configurado, porém offline: "+result.error:"Ainda não configurado."}catch(err){haOutput.textContent=err.message}});
-    document.getElementById("brainHaRun").addEventListener("click",async()=>{const option=haEntity.options[haEntity.selectedIndex];if(!option||!option.value)return;haOutput.textContent="Executando…";try{await callBridge("integration.homeAssistant.control",{entityId:option.value,domain:option.dataset.domain,service:haAction.value});haOutput.textContent="✓ Ação enviada para "+option.textContent;setTimeout(loadHaEntities,700)}catch(err){haOutput.textContent="Falha: "+err.message}});
+    document.getElementById("brainHaStatus").addEventListener("click",async()=>{try{const response=await callBridge("integration.homeAssistant.status"),result=response.result||{};if(result.baseUrl)haUrl.value=result.baseUrl;haOutput.textContent=result.connected?"✓ "+(result.locationName||"Home Assistant")+" conectado • "+(result.version||"versão detectada"):result.configured?"Configurado, porém offline: "+result.error:"Ainda não configurado."}catch(err){haOutput.textContent="Falha: "+err.message}finally{publishIntegrationResult20(haOutput.textContent)}});
+    document.getElementById("brainHaRun").addEventListener("click",async()=>{const option=haEntity.options[haEntity.selectedIndex];haOutput.textContent="Executando…";try{if(!option||!option.value)throw new Error("selecione uma entidade compatível");if(!haAction.value)throw new Error("esta entidade não possui uma ação compatível");await callBridge("integration.homeAssistant.control",{entityId:option.value,domain:option.dataset.domain,service:haAction.value});haOutput.textContent="✓ Ação executada em "+option.textContent;setTimeout(()=>loadHaEntities(false),700)}catch(err){haOutput.textContent="Falha: "+err.message}finally{publishIntegrationResult20(haOutput.textContent)}});
     const mobilityCity=document.getElementById("brainMobilityCity"),trafficOrigin=document.getElementById("brainTrafficOrigin"),trafficKey=document.getElementById("brainTrafficKey"),trafficDestination=document.getElementById("brainTrafficDestination"),mobilityOutput=document.getElementById("brainMobilityOutput");
-    document.getElementById("brainMobilitySave").addEventListener("click",async()=>{mobilityOutput.textContent="Salvando…";try{const response=await callBridge("integration.mobility.configure",{city:mobilityCity.value,origin:trafficOrigin.value,googleApiKey:trafficKey.value}),result=response.result||{};trafficKey.value="";mobilityOutput.textContent="✓ Preferências salvas. Trânsito ao vivo: "+(result.trafficConfigured?"configurado":"aguardando chave Google Routes") }catch(err){mobilityOutput.textContent="Falha: "+err.message}});
-    document.getElementById("brainWeatherTest").addEventListener("click",async()=>{mobilityOutput.textContent="Consultando previsão…";try{const response=await callBridge("weather.complete",{location:mobilityCity.value}),result=response.result||{},current=result.current||{},daily=result.daily||{};const days=(daily.time||[]).slice(0,5).map((date,index)=>`${new Date(date+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short"})}: ${Math.round(daily.temperature_2m_min[index])}°–${Math.round(daily.temperature_2m_max[index])}° • chuva ${Math.round(daily.precipitation_probability_max[index]||0)}%`);mobilityOutput.textContent=[result.location&&result.location.name||mobilityCity.value,`Agora: ${Math.round(current.temperature_2m)}°C • sensação ${Math.round(current.apparent_temperature)}°C • umidade ${Math.round(current.relative_humidity_2m)}%`,`Vento: ${Math.round(current.wind_speed_10m)} km/h • rajadas ${Math.round(current.wind_gusts_10m)} km/h`,"",...days].join("\n")}catch(err){mobilityOutput.textContent="Clima indisponível: "+err.message}});
-    document.getElementById("brainTrafficCheck").addEventListener("click",async()=>{mobilityOutput.textContent="Calculando rota com trânsito ao vivo…";try{const response=await callBridge("traffic.route",{origin:trafficOrigin.value,destination:trafficDestination.value}),result=response.result||{},routes=result.routes||[];mobilityOutput.textContent=[result.origin+" → "+result.destination,...routes.map((route,index)=>`${index?"Alternativa":"Melhor rota"}: ${route.durationMinutes} min • ${route.distanceKm} km${route.delayMinutes?` • atraso ${route.delayMinutes} min`:" • fluxo normal"}`)].join("\n")}catch(err){mobilityOutput.textContent="Trânsito indisponível: "+err.message}});
+    document.getElementById("brainMobilitySave").addEventListener("click",async()=>{mobilityOutput.textContent="Salvando…";try{if(!mobilityCity.value.trim()&&!trafficOrigin.value.trim()&&!trafficKey.value.trim())throw new Error("informe ao menos a cidade ou a origem");const response=await callBridge("integration.mobility.configure",{city:mobilityCity.value,origin:trafficOrigin.value,googleApiKey:trafficKey.value}),result=response.result||{};trafficKey.value="";mobilityOutput.textContent="✓ Preferências salvas. Trânsito ao vivo: "+(result.trafficConfigured?"configurado":"aguardando chave Google Routes")}catch(err){mobilityOutput.textContent="Falha: "+err.message}finally{publishIntegrationResult20(mobilityOutput.textContent)}});
+    document.getElementById("brainWeatherTest").addEventListener("click",async()=>{mobilityOutput.textContent="Consultando previsão…";try{if(!mobilityCity.value.trim())throw new Error("informe uma cidade");const response=await callBridge("weather.complete",{location:mobilityCity.value}),result=response.result||{},current=result.current||{},daily=result.daily||{};if(!Number.isFinite(Number(current.temperature_2m)))throw new Error("resposta meteorológica incompleta");const days=(daily.time||[]).slice(0,5).map((date,index)=>`${new Date(date+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short"})}: ${Math.round(daily.temperature_2m_min[index])}°–${Math.round(daily.temperature_2m_max[index])}° • chuva ${Math.round(daily.precipitation_probability_max[index]||0)}%`);mobilityOutput.textContent=[result.location&&result.location.name||mobilityCity.value,`Agora: ${Math.round(current.temperature_2m)}°C • sensação ${Math.round(current.apparent_temperature)}°C • umidade ${Math.round(current.relative_humidity_2m)}%`,`Vento: ${Math.round(current.wind_speed_10m)} km/h • rajadas ${Math.round(current.wind_gusts_10m)} km/h`,"",...days].join("\n")}catch(err){mobilityOutput.textContent="Clima indisponível: "+err.message}finally{publishIntegrationResult20(mobilityOutput.textContent)}});
+    document.getElementById("brainTrafficCheck").addEventListener("click",async()=>{mobilityOutput.textContent="Calculando rota com trânsito ao vivo…";try{if(!trafficOrigin.value.trim()||!trafficDestination.value.trim())throw new Error("informe origem e destino");const response=await callBridge("traffic.route",{origin:trafficOrigin.value,destination:trafficDestination.value}),result=response.result||{},routes=result.routes||[];if(!routes.length)throw new Error("nenhuma rota encontrada");mobilityOutput.textContent=[result.origin+" → "+result.destination,...routes.map((route,index)=>`${index?"Alternativa":"Melhor rota"}: ${route.durationMinutes} min • ${route.distanceKm} km${route.delayMinutes?` • atraso ${route.delayMinutes} min`:" • fluxo normal"}`)].join("\n")}catch(err){mobilityOutput.textContent="Trânsito indisponível: "+err.message}finally{publishIntegrationResult20(mobilityOutput.textContent)}});
     callBridge("integration.homeAssistant.status").then(response=>{const result=response.result||{};if(result.baseUrl)haUrl.value=result.baseUrl;if(result.connected)loadHaEntities()}).catch(()=>{});
     callBridge("integration.mobility.status").then(response=>{const result=response.result||{};mobilityCity.value=result.city||state.preferences.city||"";trafficOrigin.value=result.origin||""}).catch(()=>{mobilityCity.value=state.preferences.city||""});
     document.getElementById("brainIntegrationStatus").addEventListener("click", async () => {
       brainOutput.textContent = "Verificando integrações...";
       try{
-        const response = await callBridge("integration.status");
+        const [response,haResponse,mobilityResponse] = await Promise.all([
+          callBridge("integration.status"),
+          callBridge("integration.homeAssistant.status").catch(()=>({result:{configured:false,connected:false}})),
+          callBridge("integration.mobility.status").catch(()=>({result:{configured:false}}))
+        ]);
         const status = response && response.result || {};
+        const haStatus=haResponse&&haResponse.result||{};
+        const mobilityStatus=mobilityResponse&&mobilityResponse.result||{};
         const apps = (status.installed || []).map(item => "✓ " + item.name);
         brainOutput.textContent = [
           "CENTRAL DE INTEGRAÇÕES",
           "Bridge local: " + (status.bridge ? "✓ operacional" : "✕ indisponível"),
           "Spotify: " + (status.spotify && status.spotify.connected ? "✓ conectado como " + status.spotify.user : "○ não conectado"),
+          "Home Assistant: " + (haStatus.connected?"✓ conectado":haStatus.configured?"⚠ configurado, mas offline":"○ não configurado"),
+          "Clima: " + (mobilityStatus.city?"✓ cidade "+mobilityStatus.city:"○ cidade não configurada"),
+          "Trânsito: " + (mobilityStatus.trafficConfigured?"✓ Google Routes configurado":"○ chave Google Routes não configurada"),
           "Voz auxiliar: " + (status.speechHelper ? "✓ ativa" : "○ opcional/inativa"),
           "Aplicativos encontrados:",
           apps.length ? apps.join("\n") : "○ nenhum streaming compatível detectado"
         ].join("\n");
       }catch(err){ brainOutput.textContent = "Falha no diagnóstico das integrações: " + err.message; }
+      finally{publishIntegrationResult20(brainOutput.textContent)}
     });
     document.getElementById("brainTestAll").addEventListener("click", () => runSystemTest20(brainOutput));
     document.getElementById("brainOpenSetup").addEventListener("click", () => {
@@ -3748,55 +3762,70 @@
     }
 
     async function runMacro(name){
+      const completed=[];
+      const failed=[];
+      const step=async(label,action)=>{
+        try{await action();completed.push(label);return true;}
+        catch(err){failed.push(label+": "+String(err&&err.message||err));logError20("macro."+name+"."+label,err);return false;}
+      };
       if(name === "work"){
         setVisualMode("focus");
-        await callBridge("volume.set", {level: state.preferences.preferredVolume || 50});
-        await callBridge("system.openProgram", {program:"chrome"});
-        await callBridge("system.openProgram", {program:"vs code"});
+        completed.push("interface em foco");
+        await step("volume",()=>callBridge("volume.set", {level: state.preferences.preferredVolume || 50}));
+        await step("Chrome",()=>callBridge("system.openProgram", {program:"chrome"}));
+        await step("VS Code",()=>callBridge("system.openProgram", {program:"vs code"}));
         rememberFavoriteApp("chrome");
         rememberFavoriteApp("vs code");
-        speak("Modo trabalho iniciado. Chrome, VS Code e volume preferido ajustados.");
-        return;
+        speak(failed.length?"Modo trabalho ativado parcialmente. "+completed.join(", ")+". Não consegui: "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo trabalho iniciado. Chrome, VS Code e volume preferido ajustados.");
+        return {name,completed,failed};
       }
       if(name === "game"){
         setVisualMode("combat");
-        await callBridge("volume.set", {level:75});
-        await callBridge("system.openProgram", {program:"spotify"});
+        completed.push("interface em combate");
+        await step("volume",()=>callBridge("volume.set", {level:75}));
+        await step("Spotify",()=>callBridge("system.openProgram", {program:"spotify"}));
         rememberFavoriteApp("spotify");
-        speak("Modo jogo iniciado. Volume alto e Spotify preparados.");
-        return;
+        speak(failed.length?"Modo jogo ativado parcialmente. Não consegui preparar "+failed.map(item=>item.split(":")[0]).join(", ")+".":"Modo jogo iniciado. Volume alto e Spotify preparados.");
+        return {name,completed,failed};
       }
       if(name === "night"){
         setVisualMode("rest");
-        await callBridge("volume.set", {level:25});
-        try{ await callBridge("brightness.set", {level:30}); }catch(err){}
-        speak("Modo noite ativado. Volume baixo e brilho reduzido quando o monitor permite.");
-        return;
+        completed.push("interface em repouso");
+        await step("volume",()=>callBridge("volume.set", {level:25}));
+        await step("brilho",()=>callBridge("brightness.set", {level:30}));
+        speak(failed.length?"Modo noite ativado. O brilho não pôde ser alterado neste monitor, mas o restante foi aplicado.":"Modo noite ativado. Volume baixo e brilho reduzido.");
+        return {name,completed,failed};
       }
       if(name === "cinema"){
         setVisualMode("rest");
-        await callBridge("volume.set", {level:55});
+        completed.push("interface em repouso");
+        await step("volume",()=>callBridge("volume.set", {level:55}));
         const service = context.lastStreaming || "prime";
         context.lastStreaming = service;
         context.activeMedia = "streaming";
         saveContext();
-        await callBridge("streaming.open", {service});
-        speak("Modo cinema ativado. Streaming aberto, volume ajustado e controles de reprodução preparados.");
-        return;
+        await step("streaming",()=>callBridge("streaming.open", {service}));
+        speak(failed.length?"Modo cinema ativado parcialmente. Confira se o aplicativo de streaming está instalado.":"Modo cinema ativado. Streaming aberto, volume ajustado e controles de reprodução preparados.");
+        return {name,completed,failed};
       }
       if(name === "meeting"){
         setVisualMode("focus");
-        await callBridge("volume.set", {level:35});
-        await callBridge("meeting.open");
-        speak("Modo reunião preparado. Aplicativo de reunião aberto, volume ajustado e interface em foco.");
-        return;
+        completed.push("interface em foco");
+        await step("volume",()=>callBridge("volume.set", {level:35}));
+        await step("aplicativo de reunião",()=>callBridge("meeting.open"));
+        speak(failed.length?"Modo reunião ativado parcialmente. Abra seu aplicativo de reunião manualmente.":"Modo reunião preparado. Aplicativo de reunião aberto, volume ajustado e interface em foco.");
+        return {name,completed,failed};
       }
       if(name === "study"){
         setVisualMode("focus");
-        await callBridge("volume.set", {level:35});
+        completed.push("interface em foco");
+        await step("volume",()=>callBridge("volume.set", {level:35}));
         addSchedule({type:"reminder", message:"Sessão de estudo concluída. Faça uma pausa.", dueAt:Date.now() + 50 * 60000, label:"estudo"});
+        completed.push("lembrete de 50 minutos");
         speak("Modo estudo iniciado. Volume reduzido e sessão de cinquenta minutos programada.");
+        return {name,completed,failed};
       }
+      return {name,completed,failed:["modo desconhecido"]};
     }
 
     function memorySummary(){
@@ -4301,22 +4330,22 @@
           break;
         }
         case "macro.work":
-          await runMacro("work");
+          task.result=await runMacro("work");
           break;
         case "macro.game":
-          await runMacro("game");
+          task.result=await runMacro("game");
           break;
         case "macro.night":
-          await runMacro("night");
+          task.result=await runMacro("night");
           break;
         case "macro.cinema":
-          await runMacro("cinema");
+          task.result=await runMacro("cinema");
           break;
         case "macro.meeting":
-          await runMacro("meeting");
+          task.result=await runMacro("meeting");
           break;
         case "macro.study":
-          await runMacro("study");
+          task.result=await runMacro("study");
           break;
         case "macro.boot":
           speak("Reiniciando sequência de inicialização.");
@@ -5304,12 +5333,17 @@
       "spotify.play":"Reprodução solicitada no Spotify","spotify.pause":"Spotify pausado","spotify.resume":"Spotify retomado",
       "media.next":"Próxima mídia selecionada","media.previous":"Mídia anterior selecionada",
       "theme.set":"Tema aplicado","weather.current":"Previsão consultada","traffic.route":"Rota consultada",
-      "reminder.create":"Lembrete criado","alarm.create":"Alarme criado","timer.create":"Temporizador criado"
+      "reminder.create":"Lembrete criado","alarm.create":"Alarme criado","timer.create":"Temporizador criado",
+      "macro.work":"Modo trabalho ativado","macro.game":"Modo jogo ativado","macro.night":"Modo noite ativado",
+      "macro.cinema":"Modo cinema ativado","macro.meeting":"Modo reunião ativado","macro.study":"Modo estudo ativado"
     };
     return tasks.map(task=>{
       const label=labels[task.intent]||String(task.intent||"ação").replace(/[._]/g," ");
-      const detail=task.program||task.query||task.name||task.level;
-      return "✓ "+label+(detail!==undefined&&detail!==""?": "+detail:"");
+      const macroResult=task.result&&Array.isArray(task.result.failed)?task.result:null;
+      const detail=macroResult
+        ?(macroResult.failed.length?`parcial — ${macroResult.completed.length} concluída(s), ${macroResult.failed.length} indisponível(is)`:macroResult.completed.join(", "))
+        :task.program||task.query||task.name||task.level;
+      return (macroResult&&macroResult.failed.length?"◐ ":"✓ ")+label+(detail!==undefined&&detail!==""?": "+detail:"");
     }).join("\n");
   }
   async function handleModernCommand20(message){
@@ -5406,6 +5440,7 @@
       const control=allowed.has(id)?document.getElementById(id):null;
       if(control){
         control.click();
+        if(new Set(["brainIntegrationStatus","brainHaStatus","brainWeatherTest","brainTrafficCheck"]).has(id))return;
         setTimeout(()=>{
           const detail=(brainOutput&&brainOutput.textContent)||(brainExtensionDetails&&brainExtensionDetails.textContent)||"Ação enviada para a Maia.";
           postModern20({type:"maia-interface-control-result",text:detail});
