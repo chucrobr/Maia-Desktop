@@ -330,7 +330,7 @@ async function connectQrCode(){
 
 const CONNECT_ALLOWED_ACTIONS = new Set([
   "volume.up","volume.down","volume.set","volume.mute",
-  "media.playpause","media.next","media.previous",
+  "media.current","media.playpause","media.next","media.previous",
   "spotify.open","spotify.current","spotify.pause","spotify.resume","spotify.next","spotify.previous","spotify.volume","spotify.playSearch","spotify.shuffle","spotify.repeat","spotify.saveCurrent",
   "youtube.open","youtube.search","youtube.play",
   "streaming.open","system.openProgram","system.lock",
@@ -365,8 +365,12 @@ async function connectNaturalCommand(text){
   return runAction("speech.speak", {text:`Recebi pelo Maia Connect: ${value}`});
 }
 
-function startConnectServer(){
+async function startConnectServer(){
   if(connectServer && connectServer.listening) return connectStatus(true);
+  if(connectServer){
+    try{ connectServer.close(); }catch(err){}
+    connectServer = null;
+  }
   refreshConnectPairCode();
   connectServer = http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url, `http://${req.headers.host || `localhost:${CONNECT_PORT}`}`);
@@ -487,9 +491,20 @@ function startConnectServer(){
     }
     sendConnect(res,404,{ok:false,error:"rota não encontrada"});
   });
-  connectServer.on("error", err => { connectEnabled=false; console.warn("[maia:connect]",err.message); });
-  connectServer.listen(CONNECT_PORT, CONNECT_HOST);
-  connectEnabled = true;
+  await new Promise((resolve,reject)=>{
+    const onError=(err)=>{
+      connectEnabled=false;
+      connectServer=null;
+      reject(new Error(`Não foi possível abrir a porta ${CONNECT_PORT}: ${err.message}`));
+    };
+    connectServer.once("error",onError);
+    connectServer.listen(CONNECT_PORT,CONNECT_HOST,()=>{
+      connectServer.removeListener("error",onError);
+      connectServer.on("error",err=>{connectEnabled=false;console.warn("[maia:connect]",err.message);});
+      connectEnabled=true;
+      resolve();
+    });
+  });
   return connectStatus(true);
 }
 
@@ -1621,6 +1636,49 @@ async function spotifyCurrentPlayback(){
     shuffle: Boolean(playback.shuffle_state),
     repeat: playback.repeat_state || "off"
   };
+}
+
+async function youtubeCurrentPlayback(){
+  const script = `
+$item = Get-Process -ErrorAction SilentlyContinue |
+  Where-Object { $_.ProcessName -match '^(chrome|msedge|firefox|brave)$' -and $_.MainWindowTitle -match 'YouTube' } |
+  Select-Object -First 1 ProcessName, MainWindowTitle
+if ($item) { $item | ConvertTo-Json -Compress }
+`;
+  const result = await ps(script);
+  const raw = String(result && result.stdout || "").trim();
+  if(!raw) return null;
+  try{
+    const item = JSON.parse(raw);
+    const name = String(item.MainWindowTitle || "")
+      .replace(/\s*-\s*YouTube(?:\s*-\s*.*)?$/i, "")
+      .replace(/\s*-\s*(Google Chrome|Microsoft Edge|Mozilla Firefox|Brave)$/i, "")
+      .trim();
+    if(!name || /^YouTube$/i.test(name)) return null;
+    return {
+      service:"youtube",
+      playing:null,
+      name,
+      artists:"YouTube",
+      album:"Reprodução no navegador",
+      image:"",
+      progressMs:0,
+      durationMs:0,
+      remainingMs:0,
+      device:String(item.ProcessName || "navegador"),
+      volumePercent:null
+    };
+  }catch(err){
+    return null;
+  }
+}
+
+async function currentMediaPlayback(){
+  try{
+    const spotify = await spotifyCurrentPlayback();
+    if(spotify && spotify.name) return {...spotify, service:"spotify"};
+  }catch(err){}
+  return await youtubeCurrentPlayback() || {playing:false, service:"none"};
 }
 
 async function spotifyNext(){
@@ -2765,6 +2823,8 @@ async function runAction(action, payload){
     }
     case "media.playpause":
       return ps(keyScript(0xB3));
+    case "media.current":
+      return currentMediaPlayback();
     case "media.next":
       return ps(keyScript(0xB0));
     case "media.previous":
@@ -2881,6 +2941,7 @@ const server = http.createServer(async (req, res) => {
         "volume.mute",
         "clipboard.read",
         "screenshot.capture",
+        "media.current",
         "media.playpause",
         "media.next",
         "media.previous",

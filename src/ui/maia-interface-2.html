@@ -109,7 +109,33 @@
   .mic-bars20 i{flex:1;height:100%;transform:scaleY(.08);transform-origin:bottom;border-radius:4px 4px 1px 1px;background:linear-gradient(to top,#6d28d9 0%,#a855f7 55%,#d8b4fe 100%);box-shadow:0 0 7px rgba(168,85,247,.42);opacity:.28;transition:transform .14s ease,opacity .14s ease}
   .mic-meter20.live{box-shadow:0 0 18px rgba(168,85,247,.2)}
   .mic-meter20.live .mic-bars20 i{opacity:.9}.mic-meter20.speaking .mic-symbol20{color:var(--h-accent)}
+  .mic-meter20[data-state="listening"] .mic-symbol20,.mic-meter20[data-state="hearing"] .mic-symbol20{color:var(--h-primary)}
+  .mic-meter20.processing .mic-symbol20,.mic-meter20.processing #micState20{color:#ffd166}
+  .mic-meter20.speaking #micState20{color:var(--h-accent)}
   .mic-meter20.off{opacity:.5}
+  .media-center20{position:relative;overflow:hidden;padding:12px!important;background:linear-gradient(145deg,color-mix(in srgb,var(--h-primary) 12%,var(--h-surface)),color-mix(in srgb,var(--h-bg) 88%,transparent))!important}
+  .media-center20::before{content:"";position:absolute;inset:-45% auto auto -25%;width:150px;height:150px;border-radius:50%;background:var(--media-glow,var(--h-primary));filter:blur(60px);opacity:.16;pointer-events:none}
+  .media-head20{position:relative;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .media-head20 h3{margin:0!important}.media-service20{padding:3px 7px;border:1px solid color-mix(in srgb,var(--h-primary) 35%,transparent);border-radius:99px;color:var(--h-primary);font-size:7px;font-weight:700;letter-spacing:.12em}
+  .media-body20{position:relative;display:grid;grid-template-columns:60px minmax(0,1fr);gap:10px;align-items:center}
+  .media-cover20{width:60px;height:60px;border-radius:8px;object-fit:cover;border:1px solid color-mix(in srgb,var(--h-primary) 30%,transparent);box-shadow:0 8px 22px rgba(0,0,0,.38)}
+  .media-cover-fallback20{width:60px;height:60px;display:grid;place-items:center;border-radius:8px;background:linear-gradient(145deg,color-mix(in srgb,var(--h-primary) 34%,#11051f),#09030e);color:var(--h-soft);font-size:24px}
+  .media-copy20{min-width:0}.media-copy20 strong,.media-copy20 span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .media-copy20 strong{color:var(--h-soft);font-size:11px;line-height:1.35}.media-copy20 span{margin-top:4px;color:var(--h-dim);font-size:8px}
+  .media-progress20{position:relative;height:3px;margin-top:11px;border-radius:4px;background:color-mix(in srgb,var(--h-soft) 10%,transparent);overflow:hidden}
+  .media-progress20 i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--h-primary),var(--h-accent));box-shadow:0 0 9px var(--h-primary);transition:width .35s linear}
+  .media-time20{display:flex;justify-content:space-between;margin-top:4px;color:var(--h-dim);font-size:7px}
+  .media-controls20{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .media-controls20 button{height:29px;border:1px solid color-mix(in srgb,var(--h-primary) 28%,transparent);border-radius:6px;background:color-mix(in srgb,var(--h-primary) 8%,transparent);color:var(--h-soft);cursor:pointer;font-size:12px}
+  .media-controls20 button:hover{border-color:var(--h-primary);color:var(--h-primary);background:color-mix(in srgb,var(--h-primary) 17%,transparent)}
+  .media-controls20 .media-play20{background:var(--h-primary);color:var(--h-bg);font-size:14px}.media-controls20 .media-play20:hover{color:var(--h-bg)}
+  .media-meta20{display:flex;justify-content:space-between;gap:8px;margin-top:8px;color:var(--h-dim);font-size:7px}.media-empty20 .media-progress20,.media-empty20 .media-time20{opacity:.25}
+  .connect-center20{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:14px;margin:8px 0 20px;padding:15px;border:1px solid color-mix(in srgb,var(--h-primary) 28%,transparent);border-radius:10px;background:linear-gradient(145deg,color-mix(in srgb,var(--h-primary) 10%,var(--h-surface)),color-mix(in srgb,var(--h-bg) 90%,transparent))}
+  .connect-status20{display:flex;align-items:center;gap:8px;margin-bottom:12px;color:var(--h-dim);font-size:9px;letter-spacing:.1em}.connect-status20 i{width:8px;height:8px;border-radius:50%;background:#657080;box-shadow:0 0 10px currentColor}.connect-center20.active .connect-status20{color:#62e6a7}.connect-center20.active .connect-status20 i{background:#62e6a7}
+  .connect-details20{display:grid;grid-template-columns:1fr 1fr;gap:8px}.connect-detail20{min-width:0;padding:9px;border:1px solid color-mix(in srgb,var(--h-primary) 16%,transparent);border-radius:7px;background:rgba(0,0,0,.12)}.connect-detail20 span,.connect-detail20 strong{display:block}.connect-detail20 span{color:var(--h-dim);font-size:7px;letter-spacing:.1em}.connect-detail20 strong{overflow:hidden;margin-top:5px;color:var(--h-soft);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.connect-code20 strong{color:var(--h-primary);font-size:18px;letter-spacing:.16em}
+  .connect-actions20{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}.connect-actions20 button{height:31px;padding:0 10px;border:1px solid color-mix(in srgb,var(--h-primary) 32%,transparent);border-radius:6px;background:color-mix(in srgb,var(--h-primary) 9%,transparent);color:var(--h-soft);font-size:8px;cursor:pointer}.connect-actions20 button:hover{border-color:var(--h-primary);color:var(--h-primary)}.connect-actions20 button.primary{background:var(--h-primary);color:var(--h-bg)}
+  .connect-qr20{display:grid;place-items:center;align-content:center;min-height:190px;border:1px dashed color-mix(in srgb,var(--h-primary) 30%,transparent);border-radius:9px;color:var(--h-dim);font-size:9px;text-align:center}.connect-qr20 img{width:170px;height:170px;padding:5px;border-radius:8px;background:#fff}.connect-error20{margin-top:9px;color:#ff8090;font-size:9px;line-height:1.4}
+  @media(max-width:760px){.connect-center20{grid-template-columns:1fr}.connect-details20{grid-template-columns:1fr}.connect-qr20{min-height:120px}}
   .title-block{ text-align:center; }
   .title-block h1{
     font-family:var(--font-display); font-weight:700;
@@ -566,13 +592,13 @@
         <div class="config-row"><span>Modo compacto</span><label class="toggle"><input type="checkbox" id="toggleCompact"><span class="toggle-slider"></span></label></div>
         <div class="config-row"><span>Notificações sonoras</span><label class="toggle"><input type="checkbox" id="toggleSound"><span class="toggle-slider"></span></label></div>
         <div class="config-row"><span>Tema de cor</span><span class="config-value" id="activeThemeName">Carregando…</span></div>
-        <div class="config-row"><span>Versão da Maia</span><span class="config-value">5.3.0-beta.5</span></div>
+        <div class="config-row"><span>Versão da Maia</span><span class="config-value">5.3.0-beta.6</span></div>
       </div>
 
       <div class="view" id="view-terminal">
         <div class="panel-title">Terminal M.A.I.A.</div>
         <div class="terminal-log" id="terminalLog">
-          <div class="terminal-line">M.A.I.A. Terminal v5.3.0-beta.5 — Horizon.</div>
+          <div class="terminal-line">M.A.I.A. Terminal v5.3.0-beta.6 — Horizon.</div>
           <div class="terminal-line">Digite "help" para ver os comandos disponíveis.</div>
         </div>
       </div>
@@ -625,6 +651,24 @@
         <div class="net-val" id="downlinkVal">—</div>
         <canvas class="spark" id="downlinkSpark" width="190" height="32"></canvas>
       </div>
+    </section>
+
+    <section class="panel media-center20 media-empty20" id="mediaCenter20">
+      <div class="media-head20"><h3><span class="dot"></span>Central multimídia</h3><span class="media-service20" id="mediaService20">AGUARDANDO</span></div>
+      <div class="media-body20">
+        <div class="media-cover-fallback20" id="mediaFallback20">♫</div>
+        <img class="media-cover20" id="mediaCover20" alt="Capa da reprodução" hidden>
+        <div class="media-copy20"><strong id="mediaTitle20">Nada reproduzindo</strong><span id="mediaArtist20">Spotify e YouTube aparecerão aqui</span></div>
+      </div>
+      <div class="media-progress20"><i id="mediaProgress20"></i></div>
+      <div class="media-time20"><span id="mediaElapsed20">0:00</span><span id="mediaDuration20">0:00</span></div>
+      <div class="media-controls20">
+        <button type="button" data-media-control="previous" aria-label="Anterior">│◀</button>
+        <button type="button" class="media-play20" id="mediaPlay20" data-media-control="playpause" aria-label="Reproduzir ou pausar">▶</button>
+        <button type="button" data-media-control="next" aria-label="Próximo">▶│</button>
+        <button type="button" data-media-control="refresh" aria-label="Atualizar">↻</button>
+      </div>
+      <div class="media-meta20"><span id="mediaDevice20">Nenhum dispositivo</span><span id="mediaVolume20">VOL —</span></div>
     </section>
 
     <section class="panel">

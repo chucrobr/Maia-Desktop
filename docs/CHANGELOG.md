@@ -1,5 +1,14 @@
 # Novidades da Maia
 
+## 5.3.0-beta.6 — Horizon corrigida
+
+- Salvamento da Central alterado para persistir somente os campos modificados.
+- Estados reais de voz adicionados: aguardando, ouvindo, captando, processando e respondendo.
+- Central multimídia adicionada com Spotify, YouTube, capa, progresso e controles.
+- Maia Connect reconstruído na Horizon com estado real, QR Code, códigos de proprietário e convidado, validade e celulares pareados.
+- Servidor do Connect agora confirma a abertura da porta antes de informar que está ativo.
+- Pacote de instalação limpo para distribuir somente o idioma pt-BR do Electron.
+
 ## 5.3.0-beta.5 — Horizon final
 
 - Migração concluída para a Horizon como interface principal e única.

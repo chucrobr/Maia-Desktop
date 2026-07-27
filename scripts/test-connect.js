@@ -4,8 +4,7 @@ const bridge = require("../src/bridge/server.js");
 const connectUrl = "http://127.0.0.1:18780";
 
 async function run(){
-  bridge.startConnectServer();
-  await new Promise(resolve => setTimeout(resolve, 350));
+  await bridge.startConnectServer();
   let mobileToken = "";
   try{
     const status = bridge.getConnectStatus();

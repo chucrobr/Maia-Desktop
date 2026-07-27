@@ -2,7 +2,7 @@
   "use strict";
   const parentWindow = window.parent;
   const $ = (id) => document.getElementById(id);
-  const state = {view:"inicio", pending:false, pendingTimer:null, stats:{cpu:0,ram:0,gpu:0,energia:100}, extensions:[], selectedExtension:"", theme:null};
+  const state = {view:"inicio", pending:false, pendingTimer:null, stats:{cpu:0,ram:0,gpu:0,energia:100}, extensions:[], selectedExtension:"", theme:null, media:null, connect:null};
   const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
   const pad = (value) => String(value).padStart(2, "0");
   const days = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
@@ -112,6 +112,74 @@
   function renderProcesses20(items){
     document.querySelector(".process-list").innerHTML=(Array.isArray(items)?items:[]).map((item)=>`<div class="process-row"><span>${escapeHtml(item.name||"Processo")} <small>PID ${escapeHtml(item.pid)}</small></span><span>${escapeHtml(item.cpuSeconds)} s CPU</span><span>${escapeHtml(item.memoryMb)} MB</span></div>`).join("")||'<div class="process-row"><span>Nenhum processo disponível</span><span>—</span><span>—</span></div>';
   }
+  const formatMediaTime20=(milliseconds)=>{
+    const total=Math.max(0,Math.floor((Number(milliseconds)||0)/1000));
+    return `${Math.floor(total/60)}:${String(total%60).padStart(2,"0")}`;
+  };
+  function renderMedia20(media){
+    state.media=media&&media.name?{...media,receivedAt:Date.now()}:null;
+    const center=$("mediaCenter20"),cover=$("mediaCover20"),fallback=$("mediaFallback20");
+    const active=Boolean(state.media);
+    center.classList.toggle("media-empty20",!active);
+    $("mediaTitle20").textContent=active?state.media.name:"Nada reproduzindo";
+    $("mediaArtist20").textContent=active?[state.media.artists,state.media.album].filter(Boolean).join(" • "):"Spotify e YouTube aparecerão aqui";
+    const service=active?String(state.media.service||"mídia").toUpperCase():"AGUARDANDO";
+    $("mediaService20").textContent=service;
+    center.style.setProperty("--media-glow",service==="SPOTIFY"?"#1ed760":service==="YOUTUBE"?"#ff3030":"var(--h-primary)");
+    if(active&&state.media.image){
+      cover.src=state.media.image;
+      cover.hidden=false;
+      fallback.hidden=true;
+    }else{
+      cover.hidden=true;
+      cover.removeAttribute("src");
+      fallback.hidden=false;
+      fallback.textContent=service==="YOUTUBE"?"▶":"♫";
+    }
+    $("mediaPlay20").textContent=active&&state.media.playing===true?"Ⅱ":"▶";
+    $("mediaDevice20").textContent=active?(state.media.device||"Dispositivo ativo"):"Nenhum dispositivo";
+    $("mediaVolume20").textContent=active&&state.media.volumePercent!=null?`VOL ${Math.round(state.media.volumePercent)}%`:"VOL —";
+    updateMediaProgress20();
+  }
+  function renderConnect20(status){
+    state.connect=status||{enabled:false};
+    const active=Boolean(state.connect.enabled);
+    const center=$("connectCenter20");
+    if(!center)return;
+    center.classList.toggle("active",active);
+    $("connectState20").textContent=active?"ATIVO NA REDE LOCAL":"DESATIVADO";
+    $("connectAddress20").textContent=active&&(state.connect.addresses||[])[0]||(active?"Rede indisponível":"—");
+    $("connectOwnerCode20").textContent=active&&state.connect.pairCode||"———";
+    $("connectGuestCode20").textContent=active&&state.connect.guestCode||"———";
+    $("connectDevices20").textContent=String(state.connect.pairedDevices||0);
+    $("connectExpiry20").textContent=active&&state.connect.pairExpiresAt?new Date(state.connect.pairExpiresAt).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"—";
+    $("connectToggle20").textContent=active?"RENOVAR CÓDIGOS":"ATIVAR CONNECT";
+    const qr=$("connectQr20"),empty=$("connectQrEmpty20");
+    if(active&&state.connect.qrDataUrl){
+      qr.src=state.connect.qrDataUrl;
+      qr.hidden=false;
+      empty.hidden=true;
+    }else{
+      qr.hidden=true;
+      qr.removeAttribute("src");
+      empty.hidden=false;
+      empty.textContent=active?"QR indisponível nesta rede":"Ative o Connect para gerar o QR Code";
+    }
+    const error=$("connectError20");
+    error.textContent=state.connect.error||state.connect.qrError||"";
+    $("connectDisable20").disabled=!active;
+    $("connectCopy20").disabled=!active;
+  }
+  function updateMediaProgress20(){
+    const media=state.media;
+    let progress=media?Number(media.progressMs)||0:0;
+    const duration=media?Number(media.durationMs)||0:0;
+    if(media&&media.playing===true)progress+=Date.now()-media.receivedAt;
+    progress=duration?Math.min(progress,duration):0;
+    $("mediaProgress20").style.width=duration?`${Math.min(100,progress/duration*100).toFixed(2)}%`:"0%";
+    $("mediaElapsed20").textContent=formatMediaTime20(progress);
+    $("mediaDuration20").textContent=formatMediaTime20(duration);
+  }
   function applyTheme(theme){
     if(!theme)return;
     state.theme=theme;
@@ -154,11 +222,22 @@
     if(message.type==="maia-interface-mic"){
       const meter=$("micMeter20"),level=Math.max(0,Math.min(1,Number(message.level)||0));
       const percent=Math.round(level*100);
+      const status=String(message.status||(!message.active?"unavailable":message.speaking?"responding":level>.08?"hearing":"waiting"));
+      const statusLabels={
+        unavailable:"INDISPONÍVEL",
+        waiting:"AGUARDANDO “MAIA”",
+        listening:"OUVINDO COMANDO",
+        hearing:"CAPTANDO VOZ",
+        processing:"PROCESSANDO",
+        responding:"RESPONDENDO"
+      };
       $("micPercent20").textContent=`${percent}%`;
-      $("micState20").textContent=!message.active?"INDISPONÍVEL":message.speaking?"MAIA FALANDO":level>.08?"CAPTANDO VOZ":"OUVINDO";
+      $("micState20").textContent=statusLabels[status]||"AGUARDANDO";
+      meter.dataset.state=status;
       meter.classList.toggle("off",!message.active);
       meter.classList.toggle("live",message.active&&level>.025);
-      meter.classList.toggle("speaking",Boolean(message.speaking));
+      meter.classList.toggle("speaking",status==="responding");
+      meter.classList.toggle("processing",status==="processing");
       const bars=Array.from($("micBars20").children);
       bars.forEach((bar,index)=>{
         const position=(index+1)/bars.length;
@@ -189,6 +268,8 @@
     }
     if(message.type==="maia-interface-files")renderFiles20(message.items,message.message);
     if(message.type==="maia-interface-processes")renderProcesses20(message.items);
+    if(message.type==="maia-interface-media")renderMedia20(message.data);
+    if(message.type==="maia-interface-connect")renderConnect20(message.data);
     if(message.type === "maia-interface-snapshot")applyHorizonSnapshot(message.data);
   });
   document.querySelectorAll(".nav-item").forEach((item) => item.addEventListener("click", () => switchView(item.dataset.view)));
@@ -204,6 +285,14 @@
   $("fileSearchForm20").addEventListener("submit",(event)=>{event.preventDefault();const query=$("fileSearchInput20").value.trim();if(!query)return;$("fileStatus20").textContent="Buscando arquivos…";parentWindow.postMessage({type:"maia-interface-action",action:"file.search",query},"*");});
   $("downloadsRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-action",action:"downloads.list"},"*"));
   $("systemRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-action",action:"system.refresh"},"*"));
+  document.querySelectorAll("[data-media-control]").forEach((button)=>button.addEventListener("click",()=>{
+    const command=button.dataset.mediaControl;
+    parentWindow.postMessage({type:"maia-interface-action",action:command==="refresh"?"media.current":"media.control",command},"*");
+  }));
+  $("mediaCover20").addEventListener("error",()=>{
+    $("mediaCover20").hidden=true;
+    $("mediaFallback20").hidden=false;
+  });
   document.querySelector(".file-list").addEventListener("click",(event)=>{const open=event.target.closest("[data-file-open]"),folder=event.target.closest("[data-file-folder]");if(open)parentWindow.postMessage({type:"maia-interface-action",action:"file.open",path:open.dataset.fileOpen},"*");if(folder)parentWindow.postMessage({type:"maia-interface-action",action:"file.openFolder",path:folder.dataset.fileFolder},"*");});
   $("fileType20").addEventListener("change",()=>{const query=$("fileSearchInput20").value.trim();parentWindow.postMessage({type:"maia-interface-action",action:query?"file.search":"downloads.list",query},"*");});
   $("toggleCompact").addEventListener("change", (event) => {
@@ -214,7 +303,6 @@
   const controlGroups=[
     ["Desempenho",[["Alternar Normal / Economia","brainPerformanceMode"],["Prévia do tema","brainVisualPreview"]]],
     ["Integrações",[["Verificar integrações","brainIntegrationStatus"],["Testar tudo","brainTestAll"],["Home Assistant","brainHaStatus"],["Clima","brainWeatherTest"],["Trânsito","brainTrafficCheck"]]],
-    ["Maia Connect",[["Ativar","brainConnectEnable"],["Atualizar status","brainConnectRefresh"],["Copiar acesso","brainConnectCopy"],["Desativar","brainConnectDisable"]]],
     ["Automação",[["Modo trabalho","command:modo trabalho"],["Modo jogo","command:modo jogo"],["Modo noite","command:modo noite"],["Modo cinema","command:modo cinema"],["Relógio do Windows","brainWindowsClockOpen"]]],
     ["Dados e segurança",[["Memória","brainMemoryView"],["Histórico","brainHistoryView"],["Exportar backup","brainBackupExport"],["Privacidade","brainPrivacyView"],["Diagnóstico","brainDiagnostics"],["Atualizações","brainUpdateCheck"]]],
   ];
@@ -233,6 +321,49 @@
       row.appendChild(button);
     });
     $("view-config").appendChild(row);
+  });
+  const connectHeading=document.createElement("div");
+  connectHeading.className="panel-title";
+  connectHeading.textContent="Maia Connect";
+  $("view-config").appendChild(connectHeading);
+  const connectCenter=document.createElement("section");
+  connectCenter.id="connectCenter20";
+  connectCenter.className="connect-center20";
+  connectCenter.innerHTML=`
+    <div>
+      <div class="connect-status20"><i></i><span id="connectState20">CONSULTANDO…</span></div>
+      <div class="connect-details20">
+        <div class="connect-detail20" style="grid-column:1/-1"><span>ENDEREÇO NO CELULAR</span><strong id="connectAddress20">—</strong></div>
+        <div class="connect-detail20 connect-code20"><span>CÓDIGO DO PROPRIETÁRIO</span><strong id="connectOwnerCode20">———</strong></div>
+        <div class="connect-detail20 connect-code20"><span>CÓDIGO DE CONVIDADO</span><strong id="connectGuestCode20">———</strong></div>
+        <div class="connect-detail20"><span>CELULARES PAREADOS</span><strong id="connectDevices20">0</strong></div>
+        <div class="connect-detail20"><span>CÓDIGOS VÁLIDOS ATÉ</span><strong id="connectExpiry20">—</strong></div>
+      </div>
+      <div class="connect-actions20">
+        <button type="button" class="primary" id="connectToggle20">ATIVAR CONNECT</button>
+        <button type="button" id="connectRefresh20">ATUALIZAR</button>
+        <button type="button" id="connectCopy20">COPIAR ACESSO</button>
+        <button type="button" id="connectForget20">REVOGAR CELULARES</button>
+        <button type="button" id="connectDisable20">DESATIVAR</button>
+      </div>
+      <div class="connect-error20" id="connectError20"></div>
+    </div>
+    <div class="connect-qr20"><img id="connectQr20" alt="QR Code do Maia Connect" hidden><span id="connectQrEmpty20">Ative o Connect para gerar o QR Code</span></div>`;
+  $("view-config").appendChild(connectCenter);
+  $("connectToggle20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectEnable"},"*"));
+  $("connectRefresh20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectRefresh"},"*"));
+  $("connectDisable20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectDisable"},"*"));
+  $("connectForget20").addEventListener("click",()=>parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectForget"},"*"));
+  $("connectCopy20").addEventListener("click",async()=>{
+    const status=state.connect||{},address=(status.addresses||[])[0]||"";
+    if(!status.enabled||!address)return;
+    const access=`${address}\nCódigo: ${status.pairCode||""}`;
+    try{
+      await navigator.clipboard.writeText(access);
+      $("horizonControlOutput").textContent="Endereço e código de pareamento copiados.";
+    }catch(err){
+      parentWindow.postMessage({type:"maia-interface-control",id:"brainConnectCopy"},"*");
+    }
   });
   const output=document.createElement("div");
   output.id="horizonControlOutput";
@@ -266,8 +397,20 @@
       button.textContent=label;
       button.addEventListener("click",()=>{
         const values={};
-        section.querySelectorAll("[data-horizon-field]").forEach((control)=>{values[control.dataset.horizonField]=control.value;});
+        section.querySelectorAll("[data-horizon-field]").forEach((control)=>{
+          if(control.dataset.horizonDirty==="1")values[control.dataset.horizonField]=control.value;
+        });
+        if(!Object.keys(values).length&&click==="horizonProfileApply"){
+          const output=$("horizonControlOutput");
+          if(output)output.textContent="Nenhuma alteração para salvar.";
+          return;
+        }
         parentWindow.postMessage({type:"maia-interface-form",values,click},"*");
+        section.querySelectorAll("[data-horizon-field]").forEach((control)=>{
+          if(control.dataset.horizonDirty!=="1")return;
+          control.dataset.horizonInitial=control.value;
+          control.dataset.horizonDirty="0";
+        });
       });
       buttons.appendChild(button);
     });
@@ -356,6 +499,7 @@
     Object.entries(snapshot.fields).forEach(([id,definition])=>{
       const control=document.querySelector(`[data-horizon-field="${id}"]`);
       if(!control)return;
+      if(control.dataset.horizonDirty==="1")return;
       if(control.tagName==="SELECT"&&Array.isArray(definition.options)){
         control.innerHTML="";
         definition.options.forEach((item)=>{
@@ -366,6 +510,7 @@
         });
       }
       control.value=definition.value??"";
+      control.dataset.horizonInitial=control.value;
     });
     const status=snapshot.status||{};
     const output=$("horizonControlOutput");
@@ -381,6 +526,16 @@
       applyCursorTheme20();
     }
   }
+  document.addEventListener("input",(event)=>{
+    const control=event.target.closest&&event.target.closest("[data-horizon-field]");
+    if(!control)return;
+    control.dataset.horizonDirty=control.value!==String(control.dataset.horizonInitial??"")?"1":"0";
+  });
+  document.addEventListener("change",(event)=>{
+    const control=event.target.closest&&event.target.closest("[data-horizon-field]");
+    if(!control)return;
+    control.dataset.horizonDirty=control.value!==String(control.dataset.horizonInitial??"")?"1":"0";
+  });
   function extensionInitials20(name){
     return String(name||"EX").split(/\s+/).slice(0,2).map((part)=>part[0]||"").join("").toUpperCase();
   }
@@ -441,7 +596,9 @@
   $("app").classList.add("command-input-visible");
   updateClock();
   setInterval(()=>{if(!document.hidden)updateClock()},1000);
+  setInterval(()=>{if(!document.hidden)updateMediaProgress20()},1000);
   parentWindow.postMessage({type:"maia-interface-ready"}, "*");
+  parentWindow.postMessage({type:"maia-interface-action",action:"media.current"}, "*");
   const boot=$("horizonBoot"),bootProgress=$("horizonBootProgress"),bootState=$("horizonBootState");
   const bootSteps=[[18,"CARREGANDO IDENTIDADE"],[42,"CONECTANDO AO NÚCLEO"],[68,"SINCRONIZANDO INTEGRAÇÕES"],[88,"VALIDANDO SISTEMAS"],[100,"HORIZON ONLINE"]];
   bootSteps.forEach(([progress,label],index)=>setTimeout(()=>{

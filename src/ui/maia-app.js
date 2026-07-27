@@ -556,11 +556,12 @@
   async function refreshNowPlaying20(){
     if(!state.bridgeOnline) return;
     try{
-      const data = await callBridge("spotify.current");
+      const data = await callBridge("media.current");
       const current = data && data.result;
       lastPlayback20 = current;
       if(!current || !current.name){
         nowPlaying.classList.remove("visible");
+        postModern20({type:"maia-interface-media",data:null});
         return;
       }
       nowTitle.textContent = current.name;
@@ -569,17 +570,23 @@
       nowProgress.style.width = current.durationMs ? Math.min(100, current.progressMs / current.durationMs * 100).toFixed(1) + "%" : "0%";
       nowToggle.textContent = current.playing ? "Ⅱ" : "▶";
       nowPlaying.classList.add("visible");
+      postModern20({type:"maia-interface-media",data:current});
     }catch(err){
       nowPlaying.classList.remove("visible");
+      postModern20({type:"maia-interface-media",data:null});
     }
   }
   nowPlaying.querySelectorAll("[data-media]").forEach(button => button.addEventListener("click", async () => {
     const action = button.dataset.media;
     try{
-      if(action === "previous") await callBridge("spotify.previous");
-      else if(action === "next") await callBridge("spotify.next");
-      else if(lastPlayback20 && lastPlayback20.playing) await callBridge("spotify.pause");
-      else await callBridge("spotify.resume");
+      if(lastPlayback20 && lastPlayback20.service === "spotify"){
+        if(action === "previous") await callBridge("spotify.previous");
+        else if(action === "next") await callBridge("spotify.next");
+        else if(lastPlayback20.playing) await callBridge("spotify.pause");
+        else await callBridge("spotify.resume");
+      }else{
+        await callBridge(action === "previous" ? "media.previous" : action === "next" ? "media.next" : "media.playpause");
+      }
       setTimeout(refreshNowPlaying20, 350);
     }catch(err){}
   }));
@@ -945,6 +952,10 @@
     savePresence();
   }
 
+  function savePreferences(){
+    localStorage.setItem("Maia.voice.preferences", JSON.stringify(state.preferences));
+  }
+
   async function runSystemTest20(output){
     const lines = [];
     const push = (ok, label, detail = "") => {
@@ -986,6 +997,7 @@
         output.textContent = "Maia Connect desligado.\nAtive somente em uma rede Wi-Fi confiável.";
         document.getElementById("brainConnectEnable").textContent = "ATIVAR CONNECT";
         document.getElementById("brainConnectQr").hidden = true;
+        postModern20({type:"maia-interface-connect",data:connectStatus20});
         return connectStatus20;
       }
       const addresses = connectStatus20.addresses || [];
@@ -1005,10 +1017,16 @@
         const image = document.getElementById("brainConnectQr");
         image.src = qr && qr.result && qr.result.dataUrl || "";
         image.hidden = !image.src;
-      }catch(err){}
+        connectStatus20.qrDataUrl=image.src;
+        connectStatus20.accessUrl=qr && qr.result && qr.result.url || addresses[0] || "";
+      }catch(err){
+        connectStatus20.qrError=String(err&&err.message||err);
+      }
+      postModern20({type:"maia-interface-connect",data:connectStatus20});
       return connectStatus20;
     }catch(err){
       output.textContent = "Não foi possível consultar o Maia Connect: " + err.message;
+      postModern20({type:"maia-interface-connect",data:{enabled:false,error:String(err&&err.message||err)}});
       return null;
     }
   }
@@ -2385,7 +2403,25 @@
         const visualLevel=Math.min(1,level*(4+sensitivity/18));
         if(window.nucleo && window.nucleo.setAmplitude) window.nucleo.setAmplitude(visualLevel);
         if(window.nucleo && window.nucleo.setSpectrum) window.nucleo.setSpectrum(data);
-        postModern20({type:"maia-interface-mic",level:visualLevel,active:Boolean(state.voiceEnabled),speaking:Boolean(window.__maiaSpeaking)});
+        const micActive=Boolean(state.voiceEnabled);
+        const micStatus=!micActive
+          ?"unavailable"
+          :window.__maiaSpeaking
+            ?"responding"
+            :state.commandInFlight
+              ?"processing"
+              :level>.08
+                ?"hearing"
+                :state.commandArmed
+                  ?"listening"
+                  :"waiting";
+        postModern20({
+          type:"maia-interface-mic",
+          level:visualLevel,
+          active:micActive,
+          speaking:Boolean(window.__maiaSpeaking),
+          status:micStatus
+        });
         if(level > micThreshold) state.lastMicPulseAt = Date.now();
         if(Date.now() - lastDiagnosticUpdate < 600) return;
         lastDiagnosticUpdate = Date.now();
@@ -2400,7 +2436,7 @@
         }
       }, 180);
     }catch(err){
-      postModern20({type:"maia-interface-mic",level:0,active:false,error:"Microfone indisponível"});
+      postModern20({type:"maia-interface-mic",level:0,active:false,status:"unavailable",error:"Microfone indisponível"});
       setCore("MIC BLOQUEADO");
       setHud("LIBERE O MICROFONE NO WINDOWS", "idle");
     }
@@ -5265,9 +5301,11 @@
     const message=event.data||{};
     if(message.type==="maia-interface-ready"){
       postModern20({type:"maia-interface-telemetry",data:window.__maiaTelemetry||null});
+      postModern20({type:"maia-interface-media",data:lastPlayback20&&lastPlayback20.name?lastPlayback20:null});
       postModern20({type:"maia-interface-snapshot",data:horizonControlSnapshot20()});
       postModern20({type:"maia-interface-theme",data:horizonThemePayload20(state.preferences.theme||"violet")});
       postModern20({type:"maia-interface-performance",mode:localStorage.getItem("Maia.performanceMode")==="economy"?"economy":"normal"});
+      refreshConnect20();
     }
     if(message.type==="maia-interface-command")handleModernCommand20(message);
     if(message.type==="maia-extension-toggle"){
@@ -5288,6 +5326,23 @@
     if(message.type==="maia-interface-control"){
       const allowed=new Set(["brainPerformanceMode","brainVisualPreview","brainIntegrationStatus","brainTestAll","brainHaStatus","brainWeatherTest","brainTrafficCheck","brainConnectEnable","brainConnectRefresh","brainConnectCopy","brainConnectDisable","brainWindowsClockOpen","brainMemoryView","brainHistoryView","brainBackupExport","brainPrivacyView","brainDiagnostics","brainUpdateCheck","brainExtensionCommands","brainExtensionToggle","brainSilentToggle"]);
       const id=String(message.id||"");
+      const connectActions={
+        brainConnectEnable:connectStatus20&&connectStatus20.enabled?"connect.rotateCode":"connect.enable",
+        brainConnectRefresh:"connect.status",
+        brainConnectDisable:"connect.disable",
+        brainConnectForget:"connect.forgetDevices"
+      };
+      if(connectActions[id]){
+        refreshConnect20(connectActions[id]).then((status)=>{
+          const text=status&&status.enabled
+            ?`Maia Connect ativo em ${(status.addresses&&status.addresses[0])||"rede local"}.`
+            :status
+              ?"Maia Connect desativado."
+              :"Falha ao atualizar o Maia Connect.";
+          postModern20({type:"maia-interface-control-result",text});
+        });
+        return;
+      }
       const control=allowed.has(id)?document.getElementById(id):null;
       if(control){
         control.click();
@@ -5309,15 +5364,26 @@
       });
       const clickId=String(message.click||"");
       if(clickId==="horizonProfileApply"){
-        document.querySelector('[data-setup="owner"]')?.click();
-        document.querySelector('[data-setup="city"]')?.click();
-        document.getElementById("brainTreatmentApply")?.click();
-        document.querySelector('[data-setup="speech"]')?.click();
-        document.querySelector('[data-setup="presence"]')?.click();
-        document.querySelector('[data-setup="volume"]')?.click();
-        document.querySelector('[data-setup="wake"]')?.click();
+        const changed=Object.keys(values);
+        if(changed.includes("brainOwnerName")){
+          const owner=String(values.brainOwnerName||"").trim();
+          state.preferences.ownerName=owner||"senhor";
+        }
+        if(changed.includes("brainCity"))state.preferences.city=String(values.brainCity||"").trim();
+        if(changed.includes("brainTreatment")&&["senhor","senhora","name","neutral"].includes(values.brainTreatment))state.preferences.treatment=values.brainTreatment;
+        if(changed.includes("brainSpeechMode")&&["formal","casual","sarcastico"].includes(values.brainSpeechMode)){
+          state.preferences.speechMode=values.brainSpeechMode;
+          state.speechMode=values.brainSpeechMode;
+        }
+        if(changed.includes("brainPresence")&&["vivid","balanced","quiet"].includes(values.brainPresence))state.preferences.presenceLevel=values.brainPresence;
+        if(changed.includes("brainVolume"))state.preferences.preferredVolume=Math.max(0,Math.min(100,Number(values.brainVolume)||0));
+        if(changed.includes("brainWakeWords"))state.preferences.wakeWords=sanitizeWakeWords(values.brainWakeWords);
+        savePreferences();
+        brainOutput.textContent=changed.length===1?"Alteração salva com sucesso.":`${changed.length} alterações salvas com sucesso.`;
+        postModern20({type:"maia-interface-control-result",text:brainOutput.textContent});
+        speak("Preferências atualizadas.");
       }
-      const button=horizonButtonIds20.has(clickId)?document.getElementById(clickId):null;
+      const button=clickId!=="horizonProfileApply"&&horizonButtonIds20.has(clickId)?document.getElementById(clickId):null;
       if(button)button.click();
       setTimeout(()=>postModern20({type:"maia-interface-snapshot",data:horizonControlSnapshot20()}),650);
     }
@@ -5326,6 +5392,27 @@
         const result=response&&response.result;
         postModern20({type:"maia-interface-devices",devices:Array.isArray(result)?result:(result&&result.devices)||[]});
       }).catch(()=>postModern20({type:"maia-interface-devices",devices:[]}));
+    }
+    if(message.type==="maia-interface-action"&&message.action==="media.current"){
+      refreshNowPlaying20();
+    }
+    if(message.type==="maia-interface-action"&&message.action==="media.control"){
+      (async()=>{
+        const command=String(message.command||"");
+        try{
+          if(lastPlayback20&&lastPlayback20.service==="spotify"){
+            if(command==="previous")await callBridge("spotify.previous");
+            else if(command==="next")await callBridge("spotify.next");
+            else if(lastPlayback20.playing)await callBridge("spotify.pause");
+            else await callBridge("spotify.resume");
+          }else{
+            await callBridge(command==="previous"?"media.previous":command==="next"?"media.next":"media.playpause");
+          }
+          setTimeout(refreshNowPlaying20,350);
+        }catch(err){
+          postModern20({type:"maia-interface-control-result",text:"Não foi possível controlar a reprodução."});
+        }
+      })();
     }
     if(message.type==="maia-interface-action"&&["downloads.list","file.search","file.open","file.openFolder","system.refresh"].includes(message.action)){
       (async()=>{
